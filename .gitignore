@@ -1,62 +1,28 @@
-# Node modules
+# Node
 node_modules/
-**/node_modules/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Environment variables
+# Env files (secrets)
 .env
 .env.local
 .env.*.local
 
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-*.log
-
-# Build outputs
+# Builds / caches
 dist/
 build/
-out/
+.out/
 .next/
 .cache/
 coverage/
 
-# Redis dumps
-dump.rdb
-
-# MongoDB data directories
-data/
-mongodb-data/
-
-# OS / Editor files
+# OS / editors
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
-*.swp
 
-# Uploads / Images (if storing in project)
+# Uploads/temp
 uploads/
-public/uploads/
-storage/
 tmp/
-
-# Ignore compiled TypeScript
-*.tsbuildinfo
-
-# Ignore PM2 logs and artifacts
-.pids
-*.pid
-*.seed
-*.pid.lock
-
-# Ignore lock files (optional)
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-# Ignore generated tunnels & ngrok files
-.ngrok*
-.cloudflared/
-lt-config.json
