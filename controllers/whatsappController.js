@@ -57,6 +57,7 @@ exports.receiveMessage = async (req, res) => {
     const user = await findOrCreateUser(phone);
     console.log("✅ User Identified:", user.phone);
 
+
     if (
       user.chatState === "WAITING_FOR_FOOD_DETAILS" &&
       message.type === "text"
@@ -64,6 +65,7 @@ exports.receiveMessage = async (req, res) => {
       const query = message.text.body.trim().toLowerCase();
       const parsed = parseFoodQuery(query);
 
+      const userfind = await User.findOne({phone});
       if ( !parsed.item || !parsed.budget) {
         return sendText(
           from,
@@ -94,7 +96,7 @@ exports.receiveMessage = async (req, res) => {
         );
       }
       const order = await Order.create({
-        customerId: user._id,
+        customerId: userfind._id,
         merchantId: restaurant.merchantId._id,
         items: [
           {
@@ -105,10 +107,10 @@ exports.receiveMessage = async (req, res) => {
           },
         ],
         totalAmount: item.price,
-        deliveryAddress: user.address,
+        deliveryAddress: userfind.address,
       });
-      user.chatState = null;
-      await user.save();
+      userfind.chatState = null;
+      await userfind.save()
       await order.save()
 
       return sendText(
