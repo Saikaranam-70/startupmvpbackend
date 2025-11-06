@@ -37,7 +37,7 @@ exports.findOrCreateUser = async (phone) =>{
 
     let user = await User.findOne({phone}).lean();
     if(!user){
-      user = await User.create({phone});
+      user = await User.create({phone, address:"not-provided"});
     }
     await redis.set(cacheKey(phone), JSON.stringify(user), "EX", 300);
     localCache.set(phone, user);

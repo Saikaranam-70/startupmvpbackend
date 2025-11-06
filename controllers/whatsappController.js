@@ -29,7 +29,7 @@ exports.receiveMessage = async (req, res) => {
     if (!message) return res.sendStatus(200);
 
     const from = message.from;            // e.g. "9198xxxxxxxx"
-    const phone = from.replace(/^91/, ""); // your logic
+    const phone = from.replace(/^\+91/, ""); // your logic
     const user = await findOrCreateUser(phone);
     console.log("User Identified:", user.phone);
 
