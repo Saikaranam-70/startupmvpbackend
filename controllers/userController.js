@@ -91,3 +91,8 @@ exports.clearUserCache = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
+
+exports.updateUserAddress = async (phone, address) => {
+  const cleaned = phone.startsWith("+") ? phone : `+${phone}`;
+  return User.findOneAndUpdate({ phone: cleaned }, { address }, { new: true });
+};
