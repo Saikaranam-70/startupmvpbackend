@@ -3,11 +3,16 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema(
   {
     phone: {
-      type: String,
-      required: true,
-      unique: true,
-      match: /^[0-9]{10,15}$/, // basic validation for WhatsApp numbers
+  type: String,
+  validate: {
+    validator: function (v) {
+      return /^\+?[1-9]\d{9,14}$/.test(v); // supports +91...
     },
+    message: props => `${props.value} is not a valid phone number!`
+  },
+  required: true
+}
+,
     address: {
       type: String,
       required: true,
