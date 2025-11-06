@@ -1,10 +1,30 @@
 const axios = require("axios");
 const { findOrCreateUser } = require("./userController");
 const User = require("../models/User");
-const parseFoodQuery = require("../config/openai");
+// const parseFoodQuery = require("../config/openai");
 const Restaurent = require("../models/Restaurent");
 const Order = require("../models/Order");
 require("dotenv").config();
+
+function parseFoodQuery(text) {
+  text = text.toLowerCase();
+
+  // Extract first number → budget
+  const budgetMatch = text.match(/\d+/);
+  const budget = budgetMatch ? Number(budgetMatch[0]) : null;
+
+  // Extract item → remove numbers & stopwords
+  const item = text
+    .replace(/\d+/g, "")
+    .replace(/under|below|max|within|budget|rupees|rs|₹/g, "")
+    .trim()
+    .split(" ")
+    .slice(0, 2) // get first two words max
+    .join(" ");
+
+  return { item, budget };
+}
+
 
 const token = process.env.WHATSAPP_ACCESS_TOKEN;
 const phone_number_id = process.env.WHATSAPP_PHONE_ID;
@@ -42,9 +62,9 @@ exports.receiveMessage = async (req, res) => {
       message.type === "text"
     ) {
       const query = message.text.body.trim().toLowerCase();
-      const parsed = await parseFoodQuery(query);
+      const parsed = parseFoodQuery(query);
 
-      if (!parsed || !parsed.item || !parsed.budget) {
+      if ( !parsed.item || !parsed.budget) {
         return sendText(
           from,
           "⚠️ I couldn't understand that. Please send like:\n\n`biryani under 300`"
@@ -96,7 +116,7 @@ exports.receiveMessage = async (req, res) => {
         `✅ *Order Confirmed!*\n\n🍽 ${item.name}\n💰 ₹${item.price}\n🏪 ${restaurant.merchantId.storeName}\n\nYour food is on the way 🚀`
       );
     }
-    
+
     if (message.type === "text" ) {
       const text = message.text.body.trim().toLowerCase();
       if (["hi", "hello", "menu"].includes(text)) {
