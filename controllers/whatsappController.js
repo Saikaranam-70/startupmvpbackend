@@ -97,7 +97,7 @@ exports.receiveMessage = async (req, res) => {
       );
     }
 
-    if (message.type === "text" && user.chatState != "WAITING_FOR_FOOD_DETAILS") {
+    if (message.type === "text" ) {
       const text = message.text.body.trim().toLowerCase();
       if (["hi", "hello", "menu"].includes(text)) {
         await sendMainMenu(from);
