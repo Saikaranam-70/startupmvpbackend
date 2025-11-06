@@ -240,6 +240,7 @@ const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
 const Order = require("../models/Order");
 const Agent = require("../models/Agent");
+const { findOrCreateUser } = require("./userController");
 require("dotenv").config();
 
 const TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -351,7 +352,7 @@ exports.receiveMessage = async (req, res) => {
 
     const fromWa = message.from;
     const phone = normalizeE164(fromWa);
-    let user = await User.findOne({ phone }) || await User.create({ phone });
+    const user = await findOrCreateUser(phone); 
 
     // --- BUTTON HANDLERS ---
     if (message.type === "interactive" && message.interactive?.button_reply) {

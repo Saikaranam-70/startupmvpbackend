@@ -3,24 +3,28 @@ const redis = require("../config/redis");       // your redis client
 const NodeCache = require("node-cache");        // in-memory cache
 const localCache = new NodeCache({ stdTTL: 60 }); // 1-min TTL
 
-const cacheKey = (phone) => `user:${phone}`;
+const normalizePhone = (phone) => {
+  phone = phone.replace(/^\+?91/, "");
+  return `+91${phone}`;
+};
+const cacheKey = (phone) => `user:${normalizePhone(phone)}`;
 
 exports.createOrUpdateUser = async (req, res) => {
   try {
-    const { phone, address } = req.body;
+    let { phone, address } = req.body;
     if (!phone || !address)
       return res.status(400).json({ message: "Phone and address are required" });
 
+    phone = normalizePhone(phone);
+
     const user = await User.findOneAndUpdate(
-  { phone: `+91${phone}` },
-  { address },
-  { new: true, upsert: true, setDefaultsOnInsert: true }
-);
-
-
+      { phone },
+      { address },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
 
     await redis.set(cacheKey(phone), JSON.stringify(user), "EX", 300);
-    localCache.set(phone, user);
+    localCache.set(cacheKey(phone), user); // IMPORTANT
 
     res.status(200).json({ message: "User record saved", user });
   } catch (err) {
@@ -28,26 +32,27 @@ exports.createOrUpdateUser = async (req, res) => {
   }
 };
 
-exports.findOrCreateUser = async (phone) => {
-  // Ensure clean format: always store "+91XXXXXXXXXX"
-  phone = phone.replace(/^\+?91/, ""); // remove any leading +91
-  phone = `+91${phone}`; // add only once
 
-  const redisUser = await redis.get(cacheKey(phone));
+exports.findOrCreateUser = async (phone) => {
+  phone = normalizePhone(phone);
+
+  const key = cacheKey(phone);
+
+  const redisUser = await redis.get(key);
   if (redisUser) return JSON.parse(redisUser);
 
-  const memoryUser = localCache.get(phone);
+  const memoryUser = localCache.get(key);
   if (memoryUser) return memoryUser;
 
   let user = await User.findOne({ phone }).lean();
-  if (!user) {
-    user = await User.create({ phone, address: "not-provided" });
-  }
+  if (!user) user = await User.create({ phone, address: "not-provided" });
 
-  await redis.set(cacheKey(phone), JSON.stringify(user), "EX", 300);
-  localCache.set(phone, user);
+  await redis.set(key, JSON.stringify(user), "EX", 300);
+  localCache.set(key, user);
+
   return user;
 };
+
 
 
 // ✅ Get User by Phone (uses cache → memory → DB)
