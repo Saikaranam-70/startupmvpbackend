@@ -96,7 +96,7 @@ exports.receiveMessage = async (req, res) => {
         `✅ *Order Confirmed!*\n\n🍽 ${item.name}\n💰 ₹${item.price}\n🏪 ${restaurant.merchantId.storeName}\n\nYour food is on the way 🚀`
       );
     }
-
+    
     if (message.type === "text" ) {
       const text = message.text.body.trim().toLowerCase();
       if (["hi", "hello", "menu"].includes(text)) {
