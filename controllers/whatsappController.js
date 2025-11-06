@@ -81,7 +81,7 @@ async function sendMainMenu(to) {
       },
     },
     { headers: {
-        Authorization: `Bearer EAATRMkskE2oBPww0xMoCWEqMtKUORrP1LEjq1THZBkxeEjQZBFQmBzVPyf7Am2NxUVD9sycfJwWek4Eh7Xm0PYiuSGw9P178vs8AttspbKiDx6L7PZCK3ADTzZBDWmnmAcdlwZCzqzcNOktQ5QAyEYfyfjQEzDEMmzfmHQlYn99559KgnXiq5SXQWg8ty22ElfHQUq74SdI8BUmSr4yySdOgg28elOYQPZAZCZB2taHV5In9mJTF3rTO5oBVRm9ZCVY00M2BLwR1cLE5y9IYdb0SEzt6ZCQgZDZD`,
+        Authorization: `Bearer EAATRMkskE2oBP8m2WvvLV7HvQfVlUZCNdZA3cFkNvu6Bos8NxpoVxuNkF1bZAjZAimCVdCRbZAn06VP456f4ke1ZChSjJIXUr6L6m5235eAjQJpxZBznBGoZBAzfniyYzVNlcfHVotRQSvxhYWTCgcZCYZAiRQWH1TVZCwuS7Mm0go8p2LmojHfWwCc9VkKBUVN6hFkZCRzIx3zP0NQkHD6d59VZAZCm78Wfz6BKmZAuj6temESQFG8Y6u2Y7snhP4ZBAxp2eUBE0qeUOyY881ft9Ikq4MMhADTo`,
         "Content-Type": "application/json",
       },}
   );
@@ -112,7 +112,7 @@ async function sendText(to, body) {
       text: { body },
     },
     { headers: {
-        Authorization: `Bearer EAATRMkskE2oBPww0xMoCWEqMtKUORrP1LEjq1THZBkxeEjQZBFQmBzVPyf7Am2NxUVD9sycfJwWek4Eh7Xm0PYiuSGw9P178vs8AttspbKiDx6L7PZCK3ADTzZBDWmnmAcdlwZCzqzcNOktQ5QAyEYfyfjQEzDEMmzfmHQlYn99559KgnXiq5SXQWg8ty22ElfHQUq74SdI8BUmSr4yySdOgg28elOYQPZAZCZB2taHV5In9mJTF3rTO5oBVRm9ZCVY00M2BLwR1cLE5y9IYdb0SEzt6ZCQgZDZD`,
+        Authorization: `Bearer EAATRMkskE2oBP8m2WvvLV7HvQfVlUZCNdZA3cFkNvu6Bos8NxpoVxuNkF1bZAjZAimCVdCRbZAn06VP456f4ke1ZChSjJIXUr6L6m5235eAjQJpxZBznBGoZBAzfniyYzVNlcfHVotRQSvxhYWTCgcZCYZAiRQWH1TVZCwuS7Mm0go8p2LmojHfWwCc9VkKBUVN6hFkZCRzIx3zP0NQkHD6d59VZAZCm78Wfz6BKmZAuj6temESQFG8Y6u2Y7snhP4ZBAxp2eUBE0qeUOyY881ft9Ikq4MMhADTo`,
         "Content-Type": "application/json",
       },}
   );
