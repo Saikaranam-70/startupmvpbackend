@@ -61,6 +61,7 @@ exports.receiveMessage = async (req, res) => {
 
 // ✅ Send Main Menu Buttons
 async function sendMainMenu(to) {
+  to = formatForWhatsapp(to)
   return axios.post(
     `https://graph.facebook.com/v22.0/905586875961713/messages`,
     {
@@ -102,6 +103,7 @@ async function handleAction(to, id) {
 
 // ✅ Send Plain Text
 async function sendText(to, body) {
+  to = formatForWhatsapp(to)
   return axios.post(
     `https://graph.facebook.com/v22.0/905586875961713/messages`,
     {
@@ -114,4 +116,9 @@ async function sendText(to, body) {
         "Content-Type": "application/json",
       },}
   );
+}
+
+
+function formatForWhatsapp(phone) {
+  return phone.replace(/^\+/, ""); // remove only leading +
 }
