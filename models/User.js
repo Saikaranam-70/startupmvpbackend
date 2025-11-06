@@ -14,7 +14,6 @@ const userSchema = new mongoose.Schema(
     },
     address: {
       type: String,
-      required: true,
       trim: true,
     },
     chatState: { type: String, default: null }, // e.g. "WAITING_FOR_FOOD_DETAILS"
