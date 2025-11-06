@@ -12,10 +12,11 @@ exports.createOrUpdateUser = async (req, res) => {
       return res.status(400).json({ message: "Phone and address are required" });
 
     const user = await User.findOneAndUpdate(
-      `+91${phone}`,
-      { address },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    ).lean();
+  { phone: `+91${phone}` },
+  { address },
+  { new: true, upsert: true, setDefaultsOnInsert: true }
+);
+
 
 
     await redis.set(cacheKey(phone), JSON.stringify(user), "EX", 300);
@@ -27,23 +28,27 @@ exports.createOrUpdateUser = async (req, res) => {
   }
 };
 
-exports.findOrCreateUser = async (phone) =>{
-  phone = `+91${phone}`
-  const redisUser = await redis.get(cacheKey(phone))
-  if(redisUser) return JSON.parse(redisUser);
+exports.findOrCreateUser = async (phone) => {
+  // Ensure clean format: always store "+91XXXXXXXXXX"
+  phone = phone.replace(/^\+?91/, ""); // remove any leading +91
+  phone = `+91${phone}`; // add only once
 
-    const memoryUser = localCache.get(phone);
-    if(memoryUser) return memoryUser;
+  const redisUser = await redis.get(cacheKey(phone));
+  if (redisUser) return JSON.parse(redisUser);
 
-    let user = await User.findOne({phone}).lean();
-    if(!user){
-      user = await User.create({phone, address:"not-provided"});
-    }
-    await redis.set(cacheKey(phone), JSON.stringify(user), "EX", 300);
-    localCache.set(phone, user);
-    return user;
+  const memoryUser = localCache.get(phone);
+  if (memoryUser) return memoryUser;
 
-}
+  let user = await User.findOne({ phone }).lean();
+  if (!user) {
+    user = await User.create({ phone, address: "not-provided" });
+  }
+
+  await redis.set(cacheKey(phone), JSON.stringify(user), "EX", 300);
+  localCache.set(phone, user);
+  return user;
+};
+
 
 // ✅ Get User by Phone (uses cache → memory → DB)
 exports.getUserByPhone = async (req, res) => {
