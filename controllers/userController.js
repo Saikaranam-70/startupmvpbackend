@@ -35,34 +35,52 @@ exports.findOrCreateUser = async (phone) => {
   phone = normalizePhone(phone);
   const key = cacheKey(phone);
 
-  // Redis Check
+  // 1️⃣ Redis Check
   const redisUser = await redis.get(key);
   if (redisUser) {
-    const doc = User.hydrate(JSON.parse(redisUser));
-    doc.isNew = false; // ✅ prevent duplicate _id insert
+    const plain = JSON.parse(redisUser);
+    const doc = User.hydrate(plain);
+    doc.$isNew = false; // ✅ Prevent insert on save
+
+    // 🛠️ Ensure User exists in DB (fallback if DB was cleared)
+    if (!(await User.exists({ _id: doc._id }))) {
+      const newUser = await User.create({ phone });
+      const p = newUser.toObject();
+      await redis.set(key, JSON.stringify(p), "EX", 300);
+      localCache.set(key, p);
+      return newUser;
+    }
+
     return doc;
   }
 
-  // Local Cache Check
+  // 2️⃣ Local Memory Cache Check
   const memoryUser = localCache.get(key);
   if (memoryUser) {
     const doc = User.hydrate(memoryUser);
-    doc.isNew = false; // ✅ prevent duplicate _id insert
+    doc.$isNew = false;
+
+    if (!(await User.exists({ _id: doc._id }))) {
+      const newUser = await User.create({ phone });
+      const p = newUser.toObject();
+      await redis.set(key, JSON.stringify(p), "EX", 300);
+      localCache.set(key, p);
+      return newUser;
+    }
+
     return doc;
   }
 
-  // DB Check
+  // 3️⃣ DB Check
   let user = await User.findOne({ phone });
-  if (!user) {
-    user = await User.create({ phone });
-  }
+  if (!user) user = await User.create({ phone });
 
-  // Cache the plain version
+  // 4️⃣ Cache data
   const plain = user.toObject();
   await redis.set(key, JSON.stringify(plain), "EX", 300);
   localCache.set(key, plain);
 
-  return user; // ✅ Always REAL mongoose doc (with .save)
+  return user;
 };
 
 // ✅ Get User by Phone (uses cache → memory → DB)
