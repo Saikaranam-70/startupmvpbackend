@@ -12,10 +12,11 @@ const userSchema = new mongoose.Schema(
       },
       required: true,
     },
-    address: {
-      type: String,
-      trim: true,
-    },
+    location: {
+  lat: { type: Number },
+  lng: { type: Number },
+},
+
     chatState: { type: String, default: null }, // e.g. "WAITING_FOR_FOOD_DETAILS"
     tempData: { type: Object, default: {} }, // to hold temporary info
   },

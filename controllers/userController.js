@@ -35,23 +35,36 @@ exports.createOrUpdateUser = async (req, res) => {
 
 exports.findOrCreateUser = async (phone) => {
   phone = normalizePhone(phone);
-
   const key = cacheKey(phone);
 
+  // 1️⃣ Try Redis
   const redisUser = await redis.get(key);
-  if (redisUser) return JSON.parse(redisUser);
+  if (redisUser) {
+    // Convert plain object → real mongoose doc
+    return new User(JSON.parse(redisUser));
+  }
 
+  // 2️⃣ Try in-memory cache
   const memoryUser = localCache.get(key);
-  if (memoryUser) return memoryUser;
+  if (memoryUser) {
+    return new User(memoryUser);
+  }
 
-  let user = await User.findOne({ phone }).lean();
-  if (!user) user = await User.create({ phone, address: "not-provided" });
+  // 3️⃣ Query DB (IMPORTANT: REMOVE .lean())
+  let user = await User.findOne({ phone });
+  if (!user) {
+    user = await User.create({ phone, address: null });
+  }
 
-  await redis.set(key, JSON.stringify(user), "EX", 300);
-  localCache.set(key, user);
+  // 4️⃣ Store plain object in caches (not mongoose doc)
+  const plain = user.toObject();
+  await redis.set(key, JSON.stringify(plain), "EX", 300);
+  localCache.set(key, plain);
 
+  // 5️⃣ Always return mongoose doc
   return user;
 };
+
 
 
 
