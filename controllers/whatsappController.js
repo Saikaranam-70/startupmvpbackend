@@ -259,6 +259,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 // ---------- Utilities ----------
 function formatForWhatsapp(phone) { return phone.replace(/^\+/, ""); }
 function normalizeE164(incoming) { return `+91${incoming.slice(-10)}`; }
+
 function distanceKM(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1)*(Math.PI/180);
@@ -268,7 +269,20 @@ function distanceKM(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
-// ---------- WhatsApp Helpers ----------
+function parseFoodQuery(text) {
+  text = text.toLowerCase();
+  const budgetMatch = text.match(/\d+/);
+  const budget = budgetMatch ? Number(budgetMatch[0]) : null;
+  const item = text.replace(/\d+/g, "")
+    .replace(/under|below|max|within|budget|rupees|rs|₹/g, "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join(" ");
+  return { item, budget };
+}
+
+// ---------- WhatsApp Senders ----------
 async function sendText(to, body) {
   to = formatForWhatsapp(to);
   return axios.post(
@@ -324,7 +338,7 @@ async function requestLocation(to) {
       type: "interactive",
       interactive: {
         type: "location_request",
-        body: { text: "📍 Please share your location so we can assign nearest delivery agent." }
+        body: { text: "📍 Please share your live location for nearest delivery agent." }
       }
     },
     { headers: { Authorization: `Bearer EAATRMkskE2oBP4SwZCakggryQx8GDOolBJGgFSjgYTW2OvKxc0PfoxdVp8D9Ki3zRsDPP2xKUWiRl7k9KdziyuPBQAmn45NxHZCB4tnkBysGuQlxEGZAs9cbbZB3ezGqhu0QHMtM7Egp6ircktsouNTVTAM2YJvuOTzmsd3FaM7MfZA51YV0ci4yq9sdhyZCIYSVeSIcl7A0Y1fAOxyrAowSbtVZBZBL9VeiloJAKE97qLBdbXf0JHPkPaZB8nCfC3WIOIQWXUNxANgzrVyYDNUSm61e1dAZDZD`, "Content-Type": "application/json" } }
@@ -337,7 +351,7 @@ async function sendMainMenu(to) {
   ]);
 }
 
-// ---------- Webhook Verify ----------
+// ---------- WEBHOOK VERIFY ----------
 exports.verifyWebhook = (req, res) => {
   if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === VERIFY_TOKEN) {
     return res.status(200).send(req.query["hub.challenge"]);
@@ -345,7 +359,34 @@ exports.verifyWebhook = (req, res) => {
   res.sendStatus(403);
 };
 
-// ---------- Webhook Message Flow ----------
+// ---------- SEARCH MENU ----------
+async function searchMenuRows({ item, budget }) {
+  const results = await Restaurant.aggregate([
+    { $unwind: "$menuItems" },
+    {
+      $match: {
+        "menuItems.isAvailable": true,
+        "menuItems.name": { $regex: item, $options: "i" },
+        "menuItems.price": { $lte: budget }
+      }
+    },
+    { $sort: { "menuItems.price": 1 } },
+    { $limit: 20 }
+  ]);
+
+  const final = [];
+  for (let r of results) {
+    const rest = await Restaurant.findById(r._id).populate("merchantId");
+    final.push({
+      id: `ITEM_${r._id}_${r.menuItems._id}`,
+      title: `${r.menuItems.name} · ₹${r.menuItems.price}`,
+      description: rest.merchantId.storeName
+    });
+  }
+  return final;
+}
+
+// ---------- MAIN WEBHOOK ----------
 exports.receiveMessage = async (req, res) => {
   try {
     const change = req.body?.entry?.[0]?.changes?.[0]?.value;
@@ -356,36 +397,35 @@ exports.receiveMessage = async (req, res) => {
     const phone = normalizeE164(fromWa);
     const user = await findOrCreateUser(phone);
 
-    // ↙️ LOCATION RECEIVED
+    // LOCATION MESSAGE
     if (message.type === "location") {
-      const { latitude, longitude } = message.location;
-      user.location = { lat: latitude, lng: longitude };
-      user.address = null; // clear text address (GPS preferred)
+      user.location = { lat: message.location.latitude, lng: message.location.longitude };
+      user.address = null;
       await user.save();
-
-      await sendText(fromWa, "✅ Location received.\nAssigning nearest delivery agent...");
+      await sendText(fromWa, "✅ Location received!");
       return askPaymentMethod(fromWa);
     }
 
-    // ↙️ BUTTON HANDLERS
+    // BUTTON HANDLERS
     if (message.type === "interactive" && message.interactive?.button_reply) {
       const id = message.interactive.button_reply.id;
+
       if (id === "ORDER_FOOD") {
         user.chatState = "WAITING_FOR_FOOD_DETAILS";
         await user.save();
         await sendText(fromWa, "🍽 Send food & budget:\nExample: `biryani under 300`");
         return res.sendStatus(200);
       }
+
       if (id === "PAY_COD") return finalizeOrder(user, fromWa, "COD", res);
       if (id.startsWith("PAY_UPI_")) return finalizeOrder(user, fromWa, "ONLINE", res);
     }
 
-    // ↙️ LIST ITEM SELECTED
+    // LIST ITEM SELECTED
     if (message.type === "interactive" && message.interactive?.list_reply) {
       const [ , restId, itemId ] = message.interactive.list_reply.id.split("_");
       const restaurant = await Restaurant.findById(restId).populate("merchantId");
       const item = restaurant.menuItems.id(itemId);
-
       const deliveryFee = 29;
       const total = item.price + deliveryFee;
 
@@ -404,19 +444,39 @@ exports.receiveMessage = async (req, res) => {
 🏪 ${restaurant.merchantId.storeName}
 💰 Total: ₹${total}
 
-📍 Please share your *location* (recommended),
-or type your *full delivery address*.`);
+📍 Share location (recommended)
+or type your delivery address:`);
 
       await requestLocation(fromWa);
       return res.sendStatus(200);
     }
 
-    // ↙️ TEXT INPUT HANDLER (Address Fallback)
+    // TEXT MESSAGES
     if (message.type === "text") {
       const text = message.text.body.trim();
 
-      if (["hi","hello","menu"].includes(text.toLowerCase())) {
+      if (["hi", "hello", "menu"].includes(text.toLowerCase())) {
         await sendMainMenu(fromWa);
+        return res.sendStatus(200);
+      }
+
+      if (user.chatState === "WAITING_FOR_FOOD_DETAILS") {
+        const parsed = parseFoodQuery(text);
+        if (!parsed.item || !parsed.budget)
+          return sendText(fromWa, "⚠️ Try again: `biryani under 200`");
+
+        user.tempSearch = parsed;
+        user.chatState = "WAITING_FOR_ITEM_SELECTION";
+        await user.save();
+
+        const rows = await searchMenuRows(parsed);
+        if (!rows.length) {
+          user.chatState = null;
+          await user.save();
+          return sendText(fromWa, "❌ No matching items found.");
+        }
+
+        await sendList(fromWa, `Items under ₹${parsed.budget}:`, rows.slice(0, 10));
         return res.sendStatus(200);
       }
 
@@ -437,7 +497,7 @@ or type your *full delivery address*.`);
   }
 };
 
-// ---------- Payment Options ----------
+// ---------- PAYMENT ----------
 async function askPaymentMethod(to) {
   return sendButtons(to, "Select Payment Method:", [
     { id: "PAY_COD", title: "💵 Cash on Delivery" },
@@ -445,21 +505,20 @@ async function askPaymentMethod(to) {
   ]);
 }
 
-// ---------- Finalize Order ----------
+// ---------- FINALIZE ORDER ----------
 async function finalizeOrder(user, fromWa, method, res) {
   const sel = user.tempSelection;
   if (!sel) return sendText(fromWa, "No active order.");
 
   const agents = await Agent.find({ isOnline: true });
+
   let agent = null, bestDist = Infinity;
 
   for (const ag of agents) {
     if (!ag.currentLocation?.lat) continue;
-    let dist = 3;
-
-    if (user.location?.lat) {
-      dist = distanceKM(ag.currentLocation.lat, ag.currentLocation.lng, user.location.lat, user.location.lng);
-    }
+    let dist = user.location?.lat
+      ? distanceKM(ag.currentLocation.lat, ag.currentLocation.lng, user.location.lat, user.location.lng)
+      : 3;
 
     if (dist < bestDist) { bestDist = dist; agent = ag; }
   }
@@ -483,8 +542,7 @@ async function finalizeOrder(user, fromWa, method, res) {
 
   const eta = sel.deliveryTime + Math.round(bestDist * 4);
 
-  await sendText(fromWa,
-`🎉 *Order Confirmed!*
+  await sendText(fromWa, `🎉 *Order Confirmed!*
 🍽 ${sel.item.name}
 💰 ₹${sel.total} (${method})
 🏪 ${sel.restaurantName}
