@@ -401,6 +401,7 @@ exports.receiveMessage = async (req, res) => {
       user.location = { lat: message.location.latitude, lng: message.location.longitude };
       user.address = null;
       await user.save();
+      await updateUserCache(user)
       await sendText(fromWa, "✅ Location received!");
       return askPaymentMethod(fromWa);
     }
@@ -412,6 +413,7 @@ exports.receiveMessage = async (req, res) => {
       if (id === "ORDER_FOOD") {
         user.chatState = "WAITING_FOR_FOOD_DETAILS";
         await user.save();
+        await updateUserCache(user)
         await sendText(fromWa, "🍽 Send food & budget:\nExample: `biryani under 300`");
         return res.sendStatus(200);
       }
@@ -437,6 +439,7 @@ exports.receiveMessage = async (req, res) => {
       };
       user.chatState = "WAITING_FOR_LOCATION";
       await user.save();
+      await updateUserCache(user)
 
       await sendText(fromWa, `✅ Order Summary:
 🍽 ${item.name}
@@ -467,11 +470,13 @@ or type your delivery address:`);
         user.tempSearch = parsed;
         user.chatState = "WAITING_FOR_ITEM_SELECTION";
         await user.save();
+        await updateUserCache(user)
 
         const rows = await searchMenuRows(parsed);
         if (!rows.length) {
           user.chatState = null;
           await user.save();
+          await updateUserCache(user)
           return sendText(fromWa, "❌ No matching items found.");
         }
 
@@ -484,6 +489,7 @@ or type your delivery address:`);
         user.location = undefined;
         user.chatState = "WAITING_FOR_PAYMENT_METHOD";
         await user.save();
+        await updateUserCache(user)
         await sendText(fromWa, "✅ Address Saved.");
         return askPaymentMethod(fromWa);
       }
@@ -553,5 +559,14 @@ async function finalizeOrder(user, fromWa, method, res) {
   user.chatState = null;
   user.tempSelection = undefined;
   await user.save();
+  await updateUserCache(user)
   res.sendStatus(200);
+}
+
+
+async function updateUserCache(user) {
+  const key = `user:${user.phone}`;
+  const plain = user.toObject();
+  await redis.set(key, JSON.stringify(plain), "EX", 300);
+  localCache.set(key, plain);
 }
