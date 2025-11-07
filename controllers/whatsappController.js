@@ -252,8 +252,7 @@ const Agent = require("../models/Agent");
 const { findOrCreateUser } = require("./userController");
 require("dotenv").config();
 
-const TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
-const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_ID;
+
 const VERIFY_TOKEN = process.env.secret_key;
 
 // ---------- Utilities ----------

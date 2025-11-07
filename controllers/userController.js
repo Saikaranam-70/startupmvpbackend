@@ -31,40 +31,38 @@ exports.createOrUpdateUser = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: err.message });
   }
 };
-
 exports.findOrCreateUser = async (phone) => {
   phone = normalizePhone(phone);
   const key = cacheKey(phone);
 
-  // 1️⃣ Try Redis
+  // Redis Check
   const redisUser = await redis.get(key);
   if (redisUser) {
     const doc = User.hydrate(JSON.parse(redisUser));
-    doc.isNew = false; // ✅ prevents Mongo insert
+    doc.isNew = false; // ✅ prevent duplicate _id insert
     return doc;
   }
 
-  // 2️⃣ Try Local Memory Cache
+  // Local Cache Check
   const memoryUser = localCache.get(key);
   if (memoryUser) {
     const doc = User.hydrate(memoryUser);
-    doc.isNew = false; // ✅ prevents Mongo insert
+    doc.isNew = false; // ✅ prevent duplicate _id insert
     return doc;
   }
 
-  // 3️⃣ Get from DB
+  // DB Check
   let user = await User.findOne({ phone });
   if (!user) {
-    user = await User.create({ phone }); // created only once
+    user = await User.create({ phone });
   }
 
-  // 4️⃣ Cache a plain object
+  // Cache the plain version
   const plain = user.toObject();
   await redis.set(key, JSON.stringify(plain), "EX", 300);
   localCache.set(key, plain);
 
-  // 5️⃣ Return real mongoose doc (safe for .save())
-  return user;
+  return user; // ✅ Always REAL mongoose doc (with .save)
 };
 
 // ✅ Get User by Phone (uses cache → memory → DB)
