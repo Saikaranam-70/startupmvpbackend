@@ -34,7 +34,7 @@ async function sendTemplateMessage() {
     },
     {
       headers: {
-        Authorization: `Bearer EAATRMkskE2oBPww0xMoCWEqMtKUORrP1LEjq1THZBkxeEjQZBFQmBzVPyf7Am2NxUVD9sycfJwWek4Eh7Xm0PYiuSGw9P178vs8AttspbKiDx6L7PZCK3ADTzZBDWmnmAcdlwZCzqzcNOktQ5QAyEYfyfjQEzDEMmzfmHQlYn99559KgnXiq5SXQWg8ty22ElfHQUq74SdI8BUmSr4yySdOgg28elOYQPZAZCZB2taHV5In9mJTF3rTO5oBVRm9ZCVY00M2BLwR1cLE5y9IYdb0SEzt6ZCQgZDZD`,
+        Authorization: `Bearer EAATRMkskE2oBP49kjUA5gLfUVKZBrQgPZAX6BNQBZB5E0oi5RZCM3hEJV0TtXOLe3msSpQjZCxxBkGKdcmhRGtrNHOgY5ZAErybZCZCZCoScFIOlE0ATeJs1UhhnHNKXQNU4wtF27fyZBrxN4dbaxUMujEge5v0frTNVszfqbgZBi2PBGcYIKQ6Xv0AaHG4XyZCD8plNpnKTC3ZAvuUxe961yRtsLRmw3Y5QcnhPyJs3ZAZC0qk2vTo4DguZCA9OX6F7bKVo48UMyvZBkyg2nBBbjybHZBien8L4ZCw`,
         "Content-Type": "application/json",
       },
     }
@@ -48,7 +48,7 @@ async function sendTextMessage(){
         url: `https://graph.facebook.com/v22.0/905586875961713/messages`,
         method: 'post',
         headers: {
-        Authorization: `Bearer EAATRMkskE2oBPww0xMoCWEqMtKUORrP1LEjq1THZBkxeEjQZBFQmBzVPyf7Am2NxUVD9sycfJwWek4Eh7Xm0PYiuSGw9P178vs8AttspbKiDx6L7PZCK3ADTzZBDWmnmAcdlwZCzqzcNOktQ5QAyEYfyfjQEzDEMmzfmHQlYn99559KgnXiq5SXQWg8ty22ElfHQUq74SdI8BUmSr4yySdOgg28elOYQPZAZCZB2taHV5In9mJTF3rTO5oBVRm9ZCVY00M2BLwR1cLE5y9IYdb0SEzt6ZCQgZDZD`,
+        Authorization: `Bearer EAATRMkskE2oBP49kjUA5gLfUVKZBrQgPZAX6BNQBZB5E0oi5RZCM3hEJV0TtXOLe3msSpQjZCxxBkGKdcmhRGtrNHOgY5ZAErybZCZCZCoScFIOlE0ATeJs1UhhnHNKXQNU4wtF27fyZBrxN4dbaxUMujEge5v0frTNVszfqbgZBi2PBGcYIKQ6Xv0AaHG4XyZCD8plNpnKTC3ZAvuUxe961yRtsLRmw3Y5QcnhPyJs3ZAZC0qk2vTo4DguZCA9OX6F7bKVo48UMyvZBkyg2nBBbjybHZBien8L4ZCw`,
         "Content-Type": "application/json",
       },
       data: JSON.stringify({
@@ -67,7 +67,7 @@ async function sendMediaMessage(){
         url: `https://graph.facebook.com/v22.0/905586875961713/messages`,
         method: 'post',
         headers: {
-        Authorization: `Bearer EAATRMkskE2oBPww0xMoCWEqMtKUORrP1LEjq1THZBkxeEjQZBFQmBzVPyf7Am2NxUVD9sycfJwWek4Eh7Xm0PYiuSGw9P178vs8AttspbKiDx6L7PZCK3ADTzZBDWmnmAcdlwZCzqzcNOktQ5QAyEYfyfjQEzDEMmzfmHQlYn99559KgnXiq5SXQWg8ty22ElfHQUq74SdI8BUmSr4yySdOgg28elOYQPZAZCZB2taHV5In9mJTF3rTO5oBVRm9ZCVY00M2BLwR1cLE5y9IYdb0SEzt6ZCQgZDZD`,
+        Authorization: `Bearer EAATRMkskE2oBP49kjUA5gLfUVKZBrQgPZAX6BNQBZB5E0oi5RZCM3hEJV0TtXOLe3msSpQjZCxxBkGKdcmhRGtrNHOgY5ZAErybZCZCZCoScFIOlE0ATeJs1UhhnHNKXQNU4wtF27fyZBrxN4dbaxUMujEge5v0frTNVszfqbgZBi2PBGcYIKQ6Xv0AaHG4XyZCD8plNpnKTC3ZAvuUxe961yRtsLRmw3Y5QcnhPyJs3ZAZC0qk2vTo4DguZCA9OX6F7bKVo48UMyvZBkyg2nBBbjybHZBien8L4ZCw`,
         "Content-Type": "application/json",
       },
       data: JSON.stringify({

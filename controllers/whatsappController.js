@@ -235,6 +235,15 @@
 //   return phone.replace(/^\+/, ""); 
 // }
 // controllers/whatsappController.js
+
+
+
+
+
+
+
+
+
 const axios = require("axios");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
@@ -250,18 +259,6 @@ const VERIFY_TOKEN = process.env.secret_key;
 // ---------- Utilities ----------
 function formatForWhatsapp(phone) { return phone.replace(/^\+/, ""); }
 function normalizeE164(incoming) { return `+91${incoming.slice(-10)}`; }
-function parseFoodQuery(text) {
-  text = text.toLowerCase();
-  const budgetMatch = text.match(/\d+/);
-  const budget = budgetMatch ? Number(budgetMatch[0]) : null;
-  const item = text.replace(/\d+/g, "")
-    .replace(/under|below|max|within|budget|rupees|rs|₹/g, "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 3)
-    .join(" ");
-  return { item, budget };
-}
 function distanceKM(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1)*(Math.PI/180);
@@ -271,16 +268,13 @@ function distanceKM(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
-// ---------- WhatsApp Senders ----------
+// ---------- WhatsApp Helpers ----------
 async function sendText(to, body) {
   to = formatForWhatsapp(to);
   return axios.post(
     `https://graph.facebook.com/v22.0/905586875961713/messages`,
     { messaging_product: "whatsapp", to, text: { body } },
-    { headers: {
-        Authorization: `Bearer EAATRMkskE2oBP49kjUA5gLfUVKZBrQgPZAX6BNQBZB5E0oi5RZCM3hEJV0TtXOLe3msSpQjZCxxBkGKdcmhRGtrNHOgY5ZAErybZCZCZCoScFIOlE0ATeJs1UhhnHNKXQNU4wtF27fyZBrxN4dbaxUMujEge5v0frTNVszfqbgZBi2PBGcYIKQ6Xv0AaHG4XyZCD8plNpnKTC3ZAvuUxe961yRtsLRmw3Y5QcnhPyJs3ZAZC0qk2vTo4DguZCA9OX6F7bKVo48UMyvZBkyg2nBBbjybHZBien8L4ZCw`,
-        "Content-Type": "application/json",
-      }, }
+    { headers: { Authorization: `Bearer EAATRMkskE2oBP4SwZCakggryQx8GDOolBJGgFSjgYTW2OvKxc0PfoxdVp8D9Ki3zRsDPP2xKUWiRl7k9KdziyuPBQAmn45NxHZCB4tnkBysGuQlxEGZAs9cbbZB3ezGqhu0QHMtM7Egp6ircktsouNTVTAM2YJvuOTzmsd3FaM7MfZA51YV0ci4yq9sdhyZCIYSVeSIcl7A0Y1fAOxyrAowSbtVZBZBL9VeiloJAKE97qLBdbXf0JHPkPaZB8nCfC3WIOIQWXUNxANgzrVyYDNUSm61e1dAZDZD`, "Content-Type": "application/json" } }
   );
 }
 
@@ -298,10 +292,7 @@ async function sendButtons(to, body, buttons) {
         action: { buttons: buttons.map(b => ({ type:"reply", reply:{ id:b.id, title:b.title }})) }
       }
     },
-    {headers: {
-        Authorization: `Bearer EAATRMkskE2oBP49kjUA5gLfUVKZBrQgPZAX6BNQBZB5E0oi5RZCM3hEJV0TtXOLe3msSpQjZCxxBkGKdcmhRGtrNHOgY5ZAErybZCZCZCoScFIOlE0ATeJs1UhhnHNKXQNU4wtF27fyZBrxN4dbaxUMujEge5v0frTNVszfqbgZBi2PBGcYIKQ6Xv0AaHG4XyZCD8plNpnKTC3ZAvuUxe961yRtsLRmw3Y5QcnhPyJs3ZAZC0qk2vTo4DguZCA9OX6F7bKVo48UMyvZBkyg2nBBbjybHZBien8L4ZCw`,
-        "Content-Type": "application/json",
-      }}
+    { headers: { Authorization: `Bearer EAATRMkskE2oBP4SwZCakggryQx8GDOolBJGgFSjgYTW2OvKxc0PfoxdVp8D9Ki3zRsDPP2xKUWiRl7k9KdziyuPBQAmn45NxHZCB4tnkBysGuQlxEGZAs9cbbZB3ezGqhu0QHMtM7Egp6ircktsouNTVTAM2YJvuOTzmsd3FaM7MfZA51YV0ci4yq9sdhyZCIYSVeSIcl7A0Y1fAOxyrAowSbtVZBZBL9VeiloJAKE97qLBdbXf0JHPkPaZB8nCfC3WIOIQWXUNxANgzrVyYDNUSm61e1dAZDZD`, "Content-Type": "application/json" } }
   );
 }
 
@@ -316,16 +307,27 @@ async function sendList(to, body, rows) {
       interactive:{
         type:"list",
         body:{ text: body },
-        action:{
-          button:"Select Item",
-          sections:[{ title:"Available Options", rows }]
-        }
+        action:{ button:"Select Item", sections:[{ title:"Available Options", rows }] }
       }
     },
-    { headers: {
-        Authorization: `Bearer EAATRMkskE2oBP49kjUA5gLfUVKZBrQgPZAX6BNQBZB5E0oi5RZCM3hEJV0TtXOLe3msSpQjZCxxBkGKdcmhRGtrNHOgY5ZAErybZCZCZCoScFIOlE0ATeJs1UhhnHNKXQNU4wtF27fyZBrxN4dbaxUMujEge5v0frTNVszfqbgZBi2PBGcYIKQ6Xv0AaHG4XyZCD8plNpnKTC3ZAvuUxe961yRtsLRmw3Y5QcnhPyJs3ZAZC0qk2vTo4DguZCA9OX6F7bKVo48UMyvZBkyg2nBBbjybHZBien8L4ZCw`,
-        "Content-Type": "application/json",
-      } }
+    { headers: { Authorization: `Bearer EAATRMkskE2oBP4SwZCakggryQx8GDOolBJGgFSjgYTW2OvKxc0PfoxdVp8D9Ki3zRsDPP2xKUWiRl7k9KdziyuPBQAmn45NxHZCB4tnkBysGuQlxEGZAs9cbbZB3ezGqhu0QHMtM7Egp6ircktsouNTVTAM2YJvuOTzmsd3FaM7MfZA51YV0ci4yq9sdhyZCIYSVeSIcl7A0Y1fAOxyrAowSbtVZBZBL9VeiloJAKE97qLBdbXf0JHPkPaZB8nCfC3WIOIQWXUNxANgzrVyYDNUSm61e1dAZDZD`, "Content-Type": "application/json" } }
+  );
+}
+
+async function requestLocation(to) {
+  to = formatForWhatsapp(to);
+  return axios.post(
+    `https://graph.facebook.com/v22.0/905586875961713/messages`,
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "location_request",
+        body: { text: "📍 Please share your location so we can assign nearest delivery agent." }
+      }
+    },
+    { headers: { Authorization: `Bearer EAATRMkskE2oBP4SwZCakggryQx8GDOolBJGgFSjgYTW2OvKxc0PfoxdVp8D9Ki3zRsDPP2xKUWiRl7k9KdziyuPBQAmn45NxHZCB4tnkBysGuQlxEGZAs9cbbZB3ezGqhu0QHMtM7Egp6ircktsouNTVTAM2YJvuOTzmsd3FaM7MfZA51YV0ci4yq9sdhyZCIYSVeSIcl7A0Y1fAOxyrAowSbtVZBZBL9VeiloJAKE97qLBdbXf0JHPkPaZB8nCfC3WIOIQWXUNxANgzrVyYDNUSm61e1dAZDZD`, "Content-Type": "application/json" } }
   );
 }
 
@@ -352,28 +354,33 @@ exports.receiveMessage = async (req, res) => {
 
     const fromWa = message.from;
     const phone = normalizeE164(fromWa);
-    const user = await findOrCreateUser(phone); 
+    const user = await findOrCreateUser(phone);
 
-    // --- BUTTON HANDLERS ---
+    // ↙️ LOCATION RECEIVED
+    if (message.type === "location") {
+      const { latitude, longitude } = message.location;
+      user.location = { lat: latitude, lng: longitude };
+      user.address = null; // clear text address (GPS preferred)
+      await user.save();
+
+      await sendText(fromWa, "✅ Location received.\nAssigning nearest delivery agent...");
+      return askPaymentMethod(fromWa);
+    }
+
+    // ↙️ BUTTON HANDLERS
     if (message.type === "interactive" && message.interactive?.button_reply) {
       const id = message.interactive.button_reply.id;
       if (id === "ORDER_FOOD") {
         user.chatState = "WAITING_FOR_FOOD_DETAILS";
-        user.tempSearch = undefined;
-        user.tempSelection = undefined;
         await user.save();
         await sendText(fromWa, "🍽 Send food & budget:\nExample: `biryani under 300`");
         return res.sendStatus(200);
       }
-      if (id === "PAY_COD") {
-        return finalizeOrder(user, fromWa, "COD", res);
-      }
-      if (id.startsWith("PAY_UPI_")) {
-        return finalizeOrder(user, fromWa, "ONLINE", res);
-      }
+      if (id === "PAY_COD") return finalizeOrder(user, fromWa, "COD", res);
+      if (id.startsWith("PAY_UPI_")) return finalizeOrder(user, fromWa, "ONLINE", res);
     }
 
-    // --- LIST HANDLER (ITEM SELECTED) ---
+    // ↙️ LIST ITEM SELECTED
     if (message.type === "interactive" && message.interactive?.list_reply) {
       const [ , restId, itemId ] = message.interactive.list_reply.id.split("_");
       const restaurant = await Restaurant.findById(restId).populate("merchantId");
@@ -389,21 +396,22 @@ exports.receiveMessage = async (req, res) => {
         deliveryTime: restaurant.deliveryTime || 25,
         deliveryFee, total
       };
+      user.chatState = "WAITING_FOR_LOCATION";
       await user.save();
 
-      const invoice = `✅ *Order Summary*\n\n🍽 ${item.name}\n🏪 ${restaurant.merchantId.storeName}\n\n💵 Item: ₹${item.price}\n🚚 Delivery: ₹${deliveryFee}\n————————\n💰 *Total: ₹${total}*\n`;
+      await sendText(fromWa, `✅ Order Summary:
+🍽 ${item.name}
+🏪 ${restaurant.merchantId.storeName}
+💰 Total: ₹${total}
 
-      if (!user.address) {
-        user.chatState = "WAITING_FOR_ADDRESS";
-        await user.save();
-        return sendText(fromWa, invoice + "\n📍 Send your *Delivery Address*:");
-      }
+📍 Please share your *location* (recommended),
+or type your *full delivery address*.`);
 
-      await sendText(fromWa, invoice + `📍 Delivering to:\n${user.address}`);
-      return askPaymentMethod(fromWa);
+      await requestLocation(fromWa);
+      return res.sendStatus(200);
     }
 
-    // --- TEXT MESSAGES ---
+    // ↙️ TEXT INPUT HANDLER (Address Fallback)
     if (message.type === "text") {
       const text = message.text.body.trim();
 
@@ -412,36 +420,14 @@ exports.receiveMessage = async (req, res) => {
         return res.sendStatus(200);
       }
 
-      if (user.chatState === "WAITING_FOR_FOOD_DETAILS") {
-        const parsed = parseFoodQuery(text);
-        if (!parsed.item || !parsed.budget) {
-          return sendText(fromWa, "⚠️ Try again: `biryani under 200`");
-        }
-        user.tempSearch = parsed;
-        user.chatState = "WAITING_FOR_ITEM_SELECTION";
-        await user.save();
-
-        const rows = await searchMenuRows(parsed);
-        if (!rows.length) {
-          user.chatState = null;
-          await user.save();
-          return sendText(fromWa, "❌ No matching items found.");
-        }
-
-        await sendList(fromWa, `Items under ₹${parsed.budget}:`, rows.slice(0, 10));
-        return res.sendStatus(200);
-      }
-
-      if (user.chatState === "WAITING_FOR_ADDRESS") {
+      if (user.chatState === "WAITING_FOR_LOCATION") {
         user.address = text;
+        user.location = undefined;
         user.chatState = "WAITING_FOR_PAYMENT_METHOD";
         await user.save();
         await sendText(fromWa, "✅ Address Saved.");
         return askPaymentMethod(fromWa);
       }
-
-      await sendText(fromWa, "Type *menu* to continue.");
-      return res.sendStatus(200);
     }
 
     res.sendStatus(200);
@@ -451,33 +437,7 @@ exports.receiveMessage = async (req, res) => {
   }
 };
 
-// ---------- Search Menu ----------
-async function searchMenuRows({ item, budget }) {
-  const results = await Restaurant.aggregate([
-    { $unwind: "$menuItems" },
-    {
-      $match: {
-        "menuItems.isAvailable": true,
-        "menuItems.name": { $regex: item, $options: "i" },
-        "menuItems.price": { $lte: budget }
-      }
-    },
-    { $sort: { "menuItems.price": 1 } },
-    { $limit: 20 }
-  ]);
-
-  const final = [];
-  for (let r of results) {
-    const rest = await Restaurant.findById(r._id).populate("merchantId");
-    final.push({
-      id: `ITEM_${r._id}_${r.menuItems._id}`,
-      title: `${r.menuItems.name} · ₹${r.menuItems.price}`,
-      description: rest.merchantId.storeName
-    });
-  }
-  return final;
-}
-
+// ---------- Payment Options ----------
 async function askPaymentMethod(to) {
   return sendButtons(to, "Select Payment Method:", [
     { id: "PAY_COD", title: "💵 Cash on Delivery" },
@@ -490,19 +450,17 @@ async function finalizeOrder(user, fromWa, method, res) {
   const sel = user.tempSelection;
   if (!sel) return sendText(fromWa, "No active order.");
 
-  // Assign nearest delivery agent
   const agents = await Agent.find({ isOnline: true });
   let agent = null, bestDist = Infinity;
 
   for (const ag of agents) {
     if (!ag.currentLocation?.lat) continue;
-    let dist = 3; // default
+    let dist = 3;
+
     if (user.location?.lat) {
-      dist = distanceKM(
-        ag.currentLocation.lat, ag.currentLocation.lng,
-        user.location.lat, user.location.lng
-      );
+      dist = distanceKM(ag.currentLocation.lat, ag.currentLocation.lng, user.location.lat, user.location.lng);
     }
+
     if (dist < bestDist) { bestDist = dist; agent = ag; }
   }
 
@@ -530,12 +488,10 @@ async function finalizeOrder(user, fromWa, method, res) {
 🍽 ${sel.item.name}
 💰 ₹${sel.total} (${method})
 🏪 ${sel.restaurantName}
-📍 ${user.address}
 
 👤 Delivery Agent: ${agent.name}
 📞 ${agent.phone}
-⏱ ETA: ~${eta} min
-`);
+⏱ ETA: ~${eta} min`);
 
   user.chatState = null;
   user.tempSelection = undefined;
