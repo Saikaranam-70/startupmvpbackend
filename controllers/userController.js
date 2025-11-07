@@ -32,7 +32,6 @@ exports.createOrUpdateUser = async (req, res) => {
   }
 };
 
-
 exports.findOrCreateUser = async (phone) => {
   phone = normalizePhone(phone);
   const key = cacheKey(phone);
@@ -40,33 +39,33 @@ exports.findOrCreateUser = async (phone) => {
   // 1️⃣ Try Redis
   const redisUser = await redis.get(key);
   if (redisUser) {
-    // Convert plain object → real mongoose doc
-    return new User(JSON.parse(redisUser));
+    const doc = User.hydrate(JSON.parse(redisUser));
+    doc.isNew = false; // ✅ prevents Mongo insert
+    return doc;
   }
 
-  // 2️⃣ Try in-memory cache
+  // 2️⃣ Try Local Memory Cache
   const memoryUser = localCache.get(key);
   if (memoryUser) {
-    return new User(memoryUser);
+    const doc = User.hydrate(memoryUser);
+    doc.isNew = false; // ✅ prevents Mongo insert
+    return doc;
   }
 
-  // 3️⃣ Query DB (IMPORTANT: REMOVE .lean())
+  // 3️⃣ Get from DB
   let user = await User.findOne({ phone });
   if (!user) {
-    user = await User.create({ phone, address: null });
+    user = await User.create({ phone }); // created only once
   }
 
-  // 4️⃣ Store plain object in caches (not mongoose doc)
+  // 4️⃣ Cache a plain object
   const plain = user.toObject();
   await redis.set(key, JSON.stringify(plain), "EX", 300);
   localCache.set(key, plain);
 
-  // 5️⃣ Always return mongoose doc
+  // 5️⃣ Return real mongoose doc (safe for .save())
   return user;
 };
-
-
-
 
 // ✅ Get User by Phone (uses cache → memory → DB)
 exports.getUserByPhone = async (req, res) => {

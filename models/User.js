@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
 },
 
     chatState: { type: String, default: null }, // e.g. "WAITING_FOR_FOOD_DETAILS"
-    tempData: { type: Object, default: {} }, // to hold temporary info
+    tempSelection: { type: Object, default: {} }, // to hold temporary info
   },
   {
     timestamps: true, // adds createdAt and updatedAt
