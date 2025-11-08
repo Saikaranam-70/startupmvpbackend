@@ -238,7 +238,6 @@
 
 
 
-
 const axios = require("axios");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
@@ -251,11 +250,11 @@ require("dotenv").config();
 
 const VERIFY_TOKEN = process.env.secret_key;
 
-// ============= UTILITIES =============
+// WhatsApp API Config
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBP5H9MxIHZB8aZAMWdbxKYs3ZCeZAfUQejKOJeeRZCrKbDiiSEpWIGwxbJkoOI3eWGDlBGDeJwVsqSKDV4ioeCSAHbqoj2RZCFAlVX0jFJVNRnbJMnMgKYGmuZCTb5NTZCMhrXMsUaYJYEZCY17KMZBbuZCpPFtHTljkrBXW8u8V1Pma7dGpip4T2JfgUmDODyMtTyD9WYjsgxLy12ZByTZBXPS4iPLAgp6TG6kD9VUEzMZB1y7KYd5NvkyS6z1MyMquz8SXP5QEF0HVEy2IdhGlh8ZD`,
-  "Content-Type": "application/json",
+  Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+  "Content-Type": "application/json"
 };
 
 const normalize = (p) => `+91${p.slice(-10)}`;
@@ -291,8 +290,8 @@ async function sendList(to, body, rows) {
     interactive: {
       type: "list",
       body: { text: body },
-      action: { button: "Select", sections: [{ title: "Menu", rows }] },
-    },
+      action: { button: "Select", sections: [{ title: "Menu", rows }] }
+    }
   });
 }
 
@@ -309,6 +308,7 @@ async function requestLocation(to) {
   });
 }
 
+// Cache user
 async function updateCache(user) {
   const data = user.toObject();
   await redis.set(cacheKey(user.phone), JSON.stringify(data), "EX", 300);
@@ -368,14 +368,14 @@ async function searchMenu({ item, budget }) {
   }));
 }
 
-// =============== WEBHOOK VERIFY ===============
+// ================= WEBHOOK VERIFY =================
 exports.verifyWebhook = (req, res) => {
   if (req.query["hub.verify_token"] === VERIFY_TOKEN)
     return res.send(req.query["hub.challenge"]);
   res.sendStatus(403);
 };
 
-// =============== MAIN FLOW ===============
+// ================= MAIN CHAT FLOW =================
 exports.receiveMessage = async (req, res) => {
   res.sendStatus(200);
 
@@ -389,79 +389,103 @@ exports.receiveMessage = async (req, res) => {
   const phone = normalize(msg.from);
   const user = await getUser(phone);
 
+  // GREETING
   if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
     user.chatState = "WAITING_LOCATION";
     await user.save();
     await updateCache(user);
-    await sendText(phone, "👋 Hello! Please share your location to continue.");
+    await sendText(phone, "👋 Hi! Please share your location.");
     return requestLocation(phone);
   }
 
+  // LOCATION RECEIVED
   if (msg.type === "location") {
     user.location = { lat: Number(msg.location.latitude), lng: Number(msg.location.longitude) };
-    await user.save();
-    await updateCache(user);
+    await user.save(); await updateCache(user);
 
     const restaurants = await Restaurant.find().populate("merchantId");
 
     const nearby = restaurants.filter(r => {
       const mLoc = r.merchantId?.address?.location;
       if (!mLoc) return false;
-      return distanceKM(user.location.lat, user.location.lng, Number(mLoc.lat), Number(mLoc.lng)) <= 5;
+
+      return distanceKM(user.location.lat, user.location.lng, mLoc.lat, mLoc.lng) <= 5;
     });
 
-    if (!nearby.length) return sendText(phone, "😕 Sorry, we are not delivering to your location yet.");
+    if (!nearby.length)
+      return sendText(phone, "😕 Sorry, we are not delivering in your area yet.");
 
     return sendButtons(phone, "✅ We deliver in your area!", [
       { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
     ]);
   }
 
+  // ORDER FOOD CLICKED
   if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
     user.chatState = "ASK_ITEM";
-    await user.save();
-    await updateCache(user);
+    await user.save(); await updateCache(user);
     return sendText(phone, "Tell me what you want.\nExample: *biryani under 150*");
   }
 
+  // USER ENTERS FOOD QUERY
   if (user.chatState === "ASK_ITEM" && msg.type === "text") {
     const parsed = parseFood(msg.text.body);
     if (!parsed.item || !parsed.budget) return sendText(phone, "⚠️ Example: *biryani under 200*");
 
     const rows = await searchMenu(parsed);
-    if (!rows.length) return sendText(phone, "❌ No matching foods found.");
+    if (!rows.length) return sendText(phone, "❌ No food found. Try different keywords.");
 
     user.tempSearch = parsed;
     user.chatState = "SELECT_ITEM";
-    await user.save();
-    await updateCache(user);
+    await user.save(); await updateCache(user);
 
     return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
   }
 
+  // USER SELECTS ITEM
   if (msg.type === "interactive" && msg.interactive.list_reply) {
     const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
-    const restaurant = await Restaurant.findById(restId).populate("merchantId");
+    const restaurant = await Restaurant.findById(restId);
     const item = restaurant.menuItems.id(itemId);
     const total = item.price + 29;
 
     user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-user.markModified("tempOrder"); // ✅ VERY IMPORTANT
-user.chatState = "ASK_PAYMENT";
-await user.save();
-await updateCache(user);
+    user.markModified("tempOrder");
 
+    // ASK ADDRESS IF MISSING
+    if (!user.address) {
+      user.chatState = "ASK_ADDRESS";
+      await user.save(); await updateCache(user);
+      return sendText(phone, "🏠 Please send your *delivery address*:");
+    }
+
+    user.chatState = "ASK_PAYMENT";
+    await user.save(); await updateCache(user);
 
     return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
-      { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
+      { type: "reply", reply: { id: "UPI", title: "📲 UPI" } }
     ]);
   }
 
+  // USER TYPES ADDRESS
+  if (user.chatState === "ASK_ADDRESS" && msg.type === "text") {
+    user.address = msg.text.body.trim();
+    user.chatState = "ASK_PAYMENT";
+    await user.save(); await updateCache(user);
+
+    return sendButtons(phone, `✅ Address Saved!\n\nChoose payment method:`, [
+      { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
+      { type: "reply", reply: { id: "UPI", title: "📲 UPI" } }
+    ]);
+  }
+
+  // PAYMENT SELECTED → CREATE ORDER
   if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
     const sel = user.tempOrder;
-    const agents = await Agent.find({ isOnline: true });
+    if (!sel) return sendText(phone, "Something went wrong. Start again by typing *hi*.");
 
+    const agents = await Agent.find({ isOnline: true });
     let best = null, bd = Infinity;
     for (const a of agents) {
       if (!a.currentLocation) continue;
@@ -469,17 +493,18 @@ await updateCache(user);
       if (d < bd) { bd = d; best = a; }
     }
 
-    if (!best) return sendText(phone, "⏳ No available delivery agents right now.");
+    if (!best) return sendText(phone, "⏳ No delivery agents available right now.");
 
     const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
 
     const order = await Order.create({
       customerId: user._id,
       merchantId: restaurant.merchantId._id,
-      items: [{ name: sel.itemName, price: sel.price }],
+      items: [{ name: sel.itemName, price: sel.price, quantity: 1, total: sel.price }],
       totalAmount: sel.total,
       paymentMethod: msg.interactive.button_reply.id,
       agentId: best._id,
+      deliveryAddress: user.address, // ✅ REQUIRED FIELD
       status: "ASSIGNED",
     });
 
@@ -489,9 +514,8 @@ await updateCache(user);
 
     user.chatState = null;
     user.tempOrder = null;
-    await user.save();
-    await updateCache(user);
+    await user.save(); await updateCache(user);
 
-    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+    return sendText(phone, `🎉 Order Confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
   }
 };
