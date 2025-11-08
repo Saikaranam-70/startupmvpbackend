@@ -394,8 +394,19 @@ exports.receiveMessage = async (req, res) => {
     user.chatState = null;
     await user.save(); await updateCache(user);
 
-    const restaurants = await Restaurant.find();
-    const nearby = restaurants.filter(r => distanceKM(latitude, longitude, r.latitude, r.longitude) <= 5);
+    const restaurants = await Restaurant.find().populate("merchantId");
+
+// Filter restaurants by merchant location
+const nearby = restaurants.filter(r => {
+  if (!r.merchantId?.location) return false;
+  return distanceKM(
+    latitude,
+    longitude,
+    r.merchantId.location.lat,
+    r.merchantId.location.lng
+  ) <= 5;
+});
+
 
     if (!nearby.length)
       return sendText(phone, "😕 Sorry, we are not yet available in your location.");
