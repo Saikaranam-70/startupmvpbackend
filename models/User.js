@@ -6,29 +6,40 @@ const userSchema = new mongoose.Schema(
       type: String,
       validate: {
         validator: function (v) {
-          return /^\+?[1-9]\d{9,14}$/.test(v); // supports +91...
+          return /^\+?[1-9]\d{9,14}$/.test(v);
         },
         message: (props) => `${props.value} is not a valid phone number!`,
       },
       required: true,
+      unique: true
     },
-    address:{
-      type: String
-    },
-    location: {
-  lat: { type: Number },
-  lng: { type: Number },
-},
 
-    chatState: { type: String, default: null }, // e.g. "WAITING_FOR_FOOD_DETAILS"
-    tempSelection: { type: Object, default: {} }, // to hold temporary info
+    address: { type: String },
+
+    location: {
+      lat: Number,
+      lng: Number,
+    },
+
+    chatState: { type: String, default: null },
+
+    // ✅ Store when user searches "biryani under 150"
+    tempSearch: {
+      item: String,
+      budget: Number,
+    },
+
+    // ✅ Store selected item until payment is chosen
+    tempOrder: {
+      restId: String,
+      itemName: String,
+      price: Number,
+      total: Number,
+    }
   },
-  {
-    timestamps: true, // adds createdAt and updatedAt
-  }
+  { timestamps: true }
 );
 
-// ⚡ Index for fast phone lookups (important for chatbots)
 userSchema.index({ phone: 1 });
 
 module.exports = mongoose.model("User", userSchema);

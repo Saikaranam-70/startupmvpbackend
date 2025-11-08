@@ -224,6 +224,21 @@
 //   return phone.replace(/^\+/, "");
 // }
 // controllers/whatsappController.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const axios = require("axios");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
@@ -431,9 +446,11 @@ exports.receiveMessage = async (req, res) => {
     const total = item.price + 29;
 
     user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-    user.chatState = "ASK_PAYMENT";
-    await user.save();
-    await updateCache(user);
+user.markModified("tempOrder"); // ✅ VERY IMPORTANT
+user.chatState = "ASK_PAYMENT";
+await user.save();
+await updateCache(user);
+
 
     return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
