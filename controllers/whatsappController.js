@@ -254,7 +254,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 // ============= UTILITIES =============
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBP47gJZAxszWJrkDnV6wu4FWEZCdwf5vdJNBJrlyw0rcW2D6YvaDpyduTvp0Ouj5jJG0P4BoudWLxO7uHRZCFpoXpSxw1OkAr7vMB3oPm1se8s0d9ZCTbSZCZCM45c01vLSUwWpFW5cpj34Yqy31GZBot8XOzpAEqkAvT5n3xxTtECKgB1RVFUOYl6Fxd4n8bty8fXd4KJ2hY8wzetRUfYyaFof0NPD2ZBu8zL3vxlFDRJUMZAtfjkC8GweOxUzv6GLevZANvJuRL1TwgXufAZDZD`,
+  Authorization: `Bearer EAATRMkskE2oBP5H9MxIHZB8aZAMWdbxKYs3ZCeZAfUQejKOJeeRZCrKbDiiSEpWIGwxbJkoOI3eWGDlBGDeJwVsqSKDV4ioeCSAHbqoj2RZCFAlVX0jFJVNRnbJMnMgKYGmuZCTb5NTZCMhrXMsUaYJYEZCY17KMZBbuZCpPFtHTljkrBXW8u8V1Pma7dGpip4T2JfgUmDODyMtTyD9WYjsgxLy12ZByTZBXPS4iPLAgp6TG6kD9VUEzMZB1y7KYd5NvkyS6z1MyMquz8SXP5QEF0HVEy2IdhGlh8ZD`,
   "Content-Type": "application/json",
 };
 
