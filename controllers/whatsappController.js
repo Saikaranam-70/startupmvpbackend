@@ -253,7 +253,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 // WhatsApp API Config
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+  Authorization: `Bearer EAATRMkskE2oBP5H9MxIHZB8aZAMWdbxKYs3ZCeZAfUQejKOJeeRZCrKbDiiSEpWIGwxbJkoOI3eWGDlBGDeJwVsqSKDV4ioeCSAHbqoj2RZCFAlVX0jFJVNRnbJMnMgKYGmuZCTb5NTZCMhrXMsUaYJYEZCY17KMZBbuZCpPFtHTljkrBXW8u8V1Pma7dGpip4T2JfgUmDODyMtTyD9WYjsgxLy12ZByTZBXPS4iPLAgp6TG6kD9VUEzMZB1y7KYd5NvkyS6z1MyMquz8SXP5QEF0HVEy2IdhGlh8ZD`,
   "Content-Type": "application/json"
 };
 
