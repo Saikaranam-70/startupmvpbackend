@@ -238,7 +238,6 @@
 
 
 
-
 const axios = require("axios");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
@@ -389,6 +388,33 @@ exports.receiveMessage = async (req, res) => {
   const phone = normalize(msg.from);
   const user = await getUser(phone);
 
+  // ===== TRACK ORDER =====
+  if (msg.type === "text" && /track/i.test(msg.text.body)) {
+
+    if (!user.lastOrderId) {
+      return sendText(phone, "❗ You don't have any recent order to track.");
+    }
+
+    const order = await Order.findById(user.lastOrderId).populate("agentId merchantId");
+    if (!order) return sendText(phone, "❗ Order not found.");
+
+    let statusText = "";
+    switch(order.status) {
+      case "ASSIGNED": statusText = "✅ Order assigned to delivery agent."; break;
+      case "PICKED_UP": statusText = "🚴‍♂️ Food has been picked up."; break;
+      case "DELIVERING": statusText = "📦 Order is on the way."; break;
+      case "DELIVERED": statusText = "🎉 Order Delivered!"; break;
+      default: statusText = `Status: ${order.status}`;
+    }
+
+    let locationInfo = "";
+    if (order.agentId?.currentLocation) {
+      locationInfo = `\n\n📍 Agent Live Location\nhttps://www.google.com/maps?q=${order.agentId.currentLocation.lat},${order.agentId.currentLocation.lng}`;
+    }
+
+    return sendText(phone, `🧾 *Order Tracking*\n\n${statusText}${locationInfo}\n\n👤 Agent: ${order.agentId?.name}\n📞 ${order.agentId?.phone}`);
+  }
+
   if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
     user.chatState = "WAITING_LOCATION";
     await user.save();
@@ -446,11 +472,10 @@ exports.receiveMessage = async (req, res) => {
     const total = item.price + 29;
 
     user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-user.markModified("tempOrder"); // ✅ VERY IMPORTANT
-user.chatState = "ASK_PAYMENT";
-await user.save();
-await updateCache(user);
-
+    user.markModified("tempOrder");
+    user.chatState = "ASK_PAYMENT";
+    await user.save();
+    await updateCache(user);
 
     return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
@@ -488,11 +513,12 @@ await updateCache(user);
     best.currentOrderId = order._id;
     await best.save();
 
+    user.lastOrderId = order._id; // ✅ order tracking enabled
     user.chatState = null;
     user.tempOrder = null;
     await user.save();
     await updateCache(user);
 
-    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}\n\nReply *track* anytime to check status.`);
   }
 };
