@@ -415,10 +415,17 @@ if (msg.type === "location") {
 
   const nearby = restaurants.filter(r => {
     const mLoc = r.merchantId?.location;
+    const dummy = r.merchantId?.address.location;
     if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
 
     const restaurantLat = Number(mLoc.lat);
     const restaurantLng = Number(mLoc.lng);
+
+    const restaurantLat1 = Number(dummy.lat);
+    const restaurantLng2 = Number(dummy.lng);
+    console.log(restaurantLat, restaurantLng, restaurantLat1, restaurantLng2)
+    console.log(Number(user.location.lat),
+      Number(user.location.lng))
 
     return distanceKM(
       Number(user.location.lat),
