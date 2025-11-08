@@ -300,7 +300,7 @@ async function requestLocation(to) {
     messaging_product: "whatsapp",
     to: formatPhone(to),
     type: "interactive",
-    interactive: { type: "location_request", body: { text: "📍 Share your location to continue" } }
+    interactive: { type: "location_request_message", body: { text: "📍 Share your location to continue" } }
   });
 }
 
