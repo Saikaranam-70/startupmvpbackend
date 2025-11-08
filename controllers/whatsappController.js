@@ -404,6 +404,7 @@ exports.receiveMessage = async (req, res) => {
     await user.save(); await updateCache(user);
 
     const restaurants = await Restaurant.find().populate("merchantId");
+    console.log(restaurants)
 
 // Filter restaurants by merchant location
 const nearby = restaurants.filter(r => {
