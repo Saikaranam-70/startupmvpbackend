@@ -9,27 +9,23 @@
 // function parseFoodQuery(text) {
 //   text = text.toLowerCase();
 
-
 //   const budgetMatch = text.match(/\d+/);
 //   const budget = budgetMatch ? Number(budgetMatch[0]) : null;
-
 
 //   const item = text
 //     .replace(/\d+/g, "")
 //     .replace(/under|below|max|within|budget|rupees|rs|₹/g, "")
 //     .trim()
 //     .split(" ")
-//     .slice(0, 2) 
+//     .slice(0, 2)
 //     .join(" ");
 
 //   return { item, budget };
 // }
 
-
 // const token = process.env.WHATSAPP_ACCESS_TOKEN;
 // const phone_number_id = process.env.WHATSAPP_PHONE_ID;
 // const verify_token = process.env.secret_key;
-
 
 // exports.verifyWebhook = (req, res) => {
 //   const mode = req.query["hub.mode"];
@@ -43,20 +39,17 @@
 //   return res.sendStatus(403);
 // };
 
-
 // exports.receiveMessage = async (req, res) => {
 //   try {
 //     const change = req.body?.entry?.[0]?.changes?.[0]?.value;
 //     const message = change?.messages?.[0];
-//     if (!message) return res.sendStatus(200); 
+//     if (!message) return res.sendStatus(200);
 
-
-//     let from = message.from; 
+//     let from = message.from;
 //     const phone = `+91${from.slice(-10)}`;
 
 //     const user = await findOrCreateUser(phone);
 //     console.log("✅ User Identified:", user.phone);
-
 
 //     if (
 //       user.chatState === "WAITING_FOR_FOOD_DETAILS" &&
@@ -128,11 +121,9 @@
 //       }
 //     }
 
-
 //     if (message.type === "interactive" && message.interactive?.button_reply) {
 //       await handleAction(from, message.interactive.button_reply.id);
 //     }
-
 
 //     if (message.type === "interactive" && message.interactive?.list_reply) {
 //       await handleAction(from, message.interactive.list_reply.id);
@@ -144,7 +135,6 @@
 //     return res.sendStatus(500);
 //   }
 // };
-
 
 // async function sendMainMenu(to) {
 //   to = formatForWhatsapp(to);
@@ -183,7 +173,6 @@
 //     }
 //   );
 // }
-
 
 // async function handleAction(to, id) {
 //   let phone = `+91${to.slice(-10)}`;
@@ -232,13 +221,9 @@
 // }
 
 // function formatForWhatsapp(phone) {
-//   return phone.replace(/^\+/, ""); 
+//   return phone.replace(/^\+/, "");
 // }
 // controllers/whatsappController.js
-
-
-
-
 
 const axios = require("axios");
 const User = require("../models/User");
@@ -254,19 +239,29 @@ const VERIFY_TOKEN = process.env.secret_key;
 
 // ============= UTILITIES =============
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
-const AUTH = { Authorization: `Bearer EAATRMkskE2oBP8PChbDSVFL6kJjWEEvrXEgie5k1LtHXOfFlk4tEUHD3apdXCzlgAOoZAWI6beBdpLaZAtJDTafviOdo2fyfyrLZBCOeFgH9ZCZCty8UI4ZC0M2MxwUnMZBzuog3V63ZBeYQg6tO1RjMBbOMhgN3DL4qVihrrhHbXQSYcSG90xd0fScTNbvMPaWZA6OykjniDAdntvfl0VKrSaiVPkZAa9nVi8jssMGqzOTxpPZBoiD6LlX4OXjYgyh6ywyZArvXM8ZBl6zoC6b6SVQDhKJqh`, "Content-Type": "application/json" };
+const AUTH = {
+  Authorization: `Bearer EAATRMkskE2oBP8PChbDSVFL6kJjWEEvrXEgie5k1LtHXOfFlk4tEUHD3apdXCzlgAOoZAWI6beBdpLaZAtJDTafviOdo2fyfyrLZBCOeFgH9ZCZCty8UI4ZC0M2MxwUnMZBzuog3V63ZBeYQg6tO1RjMBbOMhgN3DL4qVihrrhHbXQSYcSG90xd0fScTNbvMPaWZA6OykjniDAdntvfl0VKrSaiVPkZAa9nVi8jssMGqzOTxpPZBoiD6LlX4OXjYgyh6ywyZArvXM8ZBl6zoC6b6SVQDhKJqh`,
+  "Content-Type": "application/json",
+};
 
-const formatPhone = p => p.replace(/^\+?/, "");
-const normalize = p => `+91${p.slice(-10)}`;
-const cacheKey = phone => `user:${normalize(phone)}`;
+const formatPhone = (p) => p.replace(/^\+?/, "");
+const normalize = (p) => `+91${p.slice(-10)}`;
+const cacheKey = (phone) => `user:${normalize(phone)}`;
 
 async function safeSend(payload) {
-  try { await axios.post(WABA_URL, payload, { headers: AUTH }); }
-  catch (err) { console.error("SEND ERROR:", err.response?.data || err.message); }
+  try {
+    await axios.post(WABA_URL, payload, { headers: AUTH });
+  } catch (err) {
+    console.error("SEND ERROR:", err.response?.data || err.message);
+  }
 }
 
 async function sendText(to, body) {
-  safeSend({ messaging_product: "whatsapp", to: formatPhone(to), text: { body } });
+  safeSend({
+    messaging_product: "whatsapp",
+    to: formatPhone(to),
+    text: { body },
+  });
 }
 
 async function sendButtons(to, body, buttons) {
@@ -277,8 +272,8 @@ async function sendButtons(to, body, buttons) {
     interactive: {
       type: "button",
       body: { text: body },
-      action: { buttons }
-    }
+      action: { buttons },
+    },
   });
 }
 
@@ -290,8 +285,8 @@ async function sendList(to, body, rows) {
     interactive: {
       type: "list",
       body: { text: body },
-      action: { button: "Select", sections: [{ title: "Menu", rows }] }
-    }
+      action: { button: "Select", sections: [{ title: "Menu", rows }] },
+    },
   });
 }
 
@@ -303,15 +298,14 @@ async function requestLocation(to) {
     interactive: {
       type: "location_request_message",
       body: {
-        text: "📍 Please share your live location to continue."
+        text: "📍 Please share your live location to continue.",
       },
       action: {
-        name: "send_location" // ✅ REQUIRED FIELD
-      }
-    }
+        name: "send_location", // ✅ REQUIRED FIELD
+      },
+    },
   });
 }
-
 
 async function updateCache(user) {
   const data = user.toObject();
@@ -339,9 +333,13 @@ async function getUser(phone) {
 
 function distanceKM(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2-lat1)*(Math.PI/180);
-  const dLon = (lon2-lon1)*(Math.PI/180);
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
@@ -356,14 +354,20 @@ function parseFood(text) {
 async function searchMenu({ item, budget }) {
   const results = await Restaurant.aggregate([
     { $unwind: "$menuItems" },
-    { $match: { "menuItems.isAvailable": true, "menuItems.name": { $regex: item, $options: "i" }, "menuItems.price": { $lte: budget } } },
+    {
+      $match: {
+        "menuItems.isAvailable": true,
+        "menuItems.name": { $regex: item, $options: "i" },
+        "menuItems.price": { $lte: budget },
+      },
+    },
     { $sort: { "menuItems.price": 1 } },
-    { $limit: 20 }
+    { $limit: 20 },
   ]);
 
-  return results.map(r => ({
+  return results.map((r) => ({
     id: `ITEM_${r._id}_${r.menuItems._id}`,
-    title: `${r.menuItems.name} · ₹${r.menuItems.price}`
+    title: `${r.menuItems.name} · ₹${r.menuItems.price}`,
   }));
 }
 
@@ -391,46 +395,62 @@ exports.receiveMessage = async (req, res) => {
   // *** STEP 1: USER SAYS HI ***
   if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
     user.chatState = "WAITING_LOCATION";
-    await user.save(); await updateCache(user);
+    await user.save();
+    await updateCache(user);
     await sendText(phone, "👋 Hello! To begin, please share your location.");
     return requestLocation(phone);
   }
 
   // *** STEP 2: USER SENDS LOCATION ***
-  if (msg.type === "location") {
-    const { latitude, longitude } = msg.location;
-    user.location = { lat: latitude, lng: longitude };
-    user.chatState = null;
-    await user.save(); await updateCache(user);
+  // STEP 2: USER SENDS LOCATION
+if (msg.type === "location") {
+  const { latitude, longitude } = msg.location;
+  user.location = { lat: Number(latitude), lng: Number(longitude) };
+  user.chatState = null;
+  await user.save(); 
+  await updateCache(user);
 
-    const restaurants = await Restaurant.find().populate("merchantId");
-    console.log(restaurants)
+  // Fetch restaurant + merchant (because merchant has the real coordinates)
+  const restaurants = await Restaurant.find().populate("merchantId");
 
-// Filter restaurants by merchant location
-const nearby = restaurants.filter(r => {
-  if (!r.merchantId?.location) return false;
-  return distanceKM(
-    latitude,
-    longitude,
-    r.merchantId.location.lat,
-    r.merchantId.location.lng
-  ) <= 5;
-});
+  const nearby = restaurants.filter(r => {
+    const mLoc = r.merchantId?.location;
+    if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
 
+    const restaurantLat = Number(mLoc.lat);
+    const restaurantLng = Number(mLoc.lng);
 
-    if (!nearby.length)
-      return sendText(phone, "😕 Sorry, we are not yet available in your location.");
+    return distanceKM(
+      Number(user.location.lat),
+      Number(user.location.lng),
+      restaurantLat,
+      restaurantLng
+    ) <= 5; // ✅ 5 KM search radius
+  });
 
-    return sendButtons(phone, "✅ We deliver in your area!", [
-      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
-    ]);
+  if (!nearby.length) {
+    return sendText(phone, "😕 Sorry, we are not yet available in your location.");
   }
 
+  // ✅ Restaurant(s) detected correctly now
+  return sendButtons(phone, "✅ We deliver in your area!", [
+    { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
+  ]);
+}
+
+
   // *** STEP 3: USER TAP ORDER FOOD ***
-  if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
+  if (
+    msg.type === "interactive" &&
+    msg.interactive.button_reply?.id === "ORDER_FOOD"
+  ) {
     user.chatState = "ASK_ITEM";
-    await user.save(); await updateCache(user);
-    return sendText(phone, "Tell me what you want. Example: *biryani under 150*");
+    await user.save();
+    await updateCache(user);
+    return sendText(
+      phone,
+      "Tell me what you want. Example: *biryani under 150*"
+    );
   }
 
   // *** STEP 4: USER TYPES FOOD REQUEST ***
@@ -445,44 +465,63 @@ const nearby = restaurants.filter(r => {
 
     user.tempSearch = parsed;
     user.chatState = "SELECT_ITEM";
-    await user.save(); await updateCache(user);
+    await user.save();
+    await updateCache(user);
 
     return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
   }
 
   // *** STEP 5: USER SELECTS ITEM ***
   if (msg.type === "interactive" && msg.interactive.list_reply) {
-    const [ , restId, itemId ] = msg.interactive.list_reply.id.split("_");
+    const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
     const restaurant = await Restaurant.findById(restId);
     const item = restaurant.menuItems.id(itemId);
     const total = item.price + 29;
 
     user.tempOrder = { restId, itemName: item.name, price: item.price, total };
     user.chatState = "ASK_PAYMENT";
-    await user.save(); await updateCache(user);
+    await user.save();
+    await updateCache(user);
 
-    return sendButtons(phone,
+    return sendButtons(
+      phone,
       `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`,
       [
         { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
-        { type: "reply", reply: { id: "UPI", title: "📲 UPI" } }
+        { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
       ]
     );
   }
 
   // *** STEP 6: PAYMENT SELECTED → ASSIGN AGENT ***
-  if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
+  if (
+    msg.type === "interactive" &&
+    ["COD", "UPI"].includes(msg.interactive.button_reply?.id)
+  ) {
     const sel = user.tempOrder;
     const agents = await Agent.find({ isOnline: true });
 
-    let best = null, bd = Infinity;
+    let best = null,
+      bd = Infinity;
     for (const a of agents) {
       if (!a.currentLocation) continue;
-      const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, user.location.lat, user.location.lng);
-      if (d < bd) { bd = d; best = a; }
+      const d = distanceKM(
+        a.currentLocation.lat,
+        a.currentLocation.lng,
+        user.location.lat,
+        user.location.lng
+      );
+      if (d < bd) {
+        bd = d;
+        best = a;
+      }
     }
 
-    if (!best) return sendText(phone, "⏳ No delivery agents available now. Try again soon.");
+    if (!best)
+      return sendText(
+        phone,
+        "⏳ No delivery agents available now. Try again soon."
+      );
 
     const order = await Order.create({
       customerId: user._id,
@@ -491,7 +530,7 @@ const nearby = restaurants.filter(r => {
       totalAmount: sel.total,
       paymentMethod: msg.interactive.button_reply.id,
       agentId: best._id,
-      status: "ASSIGNED"
+      status: "ASSIGNED",
     });
 
     best.isOnline = false;
@@ -500,8 +539,12 @@ const nearby = restaurants.filter(r => {
 
     user.chatState = null;
     user.tempOrder = null;
-    await user.save(); await updateCache(user);
+    await user.save();
+    await updateCache(user);
 
-    return sendText(phone, `🎉 Order Confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+    return sendText(
+      phone,
+      `🎉 Order Confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`
+    );
   }
 };
