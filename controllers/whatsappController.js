@@ -300,9 +300,18 @@ async function requestLocation(to) {
     messaging_product: "whatsapp",
     to: formatPhone(to),
     type: "interactive",
-    interactive: { type: "location_request_message", body: { text: "📍 Share your location to continue" }, action: {} }
+    interactive: {
+      type: "location_request_message",
+      body: {
+        text: "📍 Please share your live location to continue."
+      },
+      action: {
+        name: "send_location" // ✅ REQUIRED FIELD
+      }
+    }
   });
 }
+
 
 async function updateCache(user) {
   const data = user.toObject();
