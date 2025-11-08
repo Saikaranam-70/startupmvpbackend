@@ -441,7 +441,7 @@ if (msg.type === "location") {
       restaurantLng
     ) <= 5; // ✅ 5 KM search radius
   });
-
+console.log(nearby.length)
   if (!nearby.length) {
     return sendText(phone, "😕 Sorry, we are not yet available in your location.");
   }
