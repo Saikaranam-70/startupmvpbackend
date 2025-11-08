@@ -412,10 +412,17 @@ if (msg.type === "location") {
 
   // Fetch restaurant + merchant (because merchant has the real coordinates)
   const restaurants = await Restaurant.find().populate("merchantId");
+  const dummy = r.merchantId?.address.location;
+  console.log(restaurants)
+  const restaurantLat1 = Number(dummy.lat);
+    const restaurantLng2 = Number(dummy.lng);
+    console.log(restaurantLat, restaurantLng, restaurantLat1, restaurantLng2)
+    console.log(Number(user.location.lat),
+      Number(user.location.lng))
 
   const nearby = restaurants.filter(r => {
     const mLoc = r.merchantId?.location;
-    const dummy = r.merchantId?.address.location;
+    
     if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
 
     const restaurantLat = Number(mLoc.lat);
