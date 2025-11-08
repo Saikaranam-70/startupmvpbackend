@@ -404,33 +404,37 @@ exports.receiveMessage = async (req, res) => {
   // *** STEP 2: USER SENDS LOCATION ***
   // STEP 2: USER SENDS LOCATION
   if (msg.type === "location") {
-  const { latitude, longitude } = msg.location;
-  user.location = { lat: Number(latitude), lng: Number(longitude) };
-  await user.save(); 
-  await updateCache(user);
+    const { latitude, longitude } = msg.location;
+    user.location = { lat: Number(latitude), lng: Number(longitude) };
+    await user.save();
+    await updateCache(user);
 
-  const restaurants = await Restaurant.find().populate("merchantId");
+    const restaurants = await Restaurant.find().populate("merchantId");
 
-  const nearby = restaurants.filter(r => {
-    const rLoc = r.location; // ✅ use restaurant location
-    if (!rLoc || rLoc.lat == null || rLoc.lng == null) return false;
+    const nearby = restaurants.filter((r) => {
+      const mLoc = r.merchantId?.location; // ✅ Merchant location is the correct source
+      if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
 
-    return distanceKM(
-      Number(user.location.lat),
-      Number(user.location.lng),
-      Number(rLoc.lat),
-      Number(rLoc.lng)
-    ) <= 5;
-  });
+      return (
+        distanceKM(
+          Number(user.location.lat),
+          Number(user.location.lng),
+          Number(mLoc.lat),
+          Number(mLoc.lng)
+        ) <= 5
+      );
+    });
 
-  if (!nearby.length)
-    return sendText(phone, "😕 Sorry, we are not yet available in your location.");
+    if (!nearby.length)
+      return sendText(
+        phone,
+        "😕 Sorry, we are not yet available in your location."
+      );
 
-  return sendButtons(phone, "✅ We deliver in your area!", [
-    { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
-  ]);
-}
-
+    return sendButtons(phone, "✅ We deliver in your area!", [
+      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } },
+    ]);
+  }
 
   // *** STEP 3: USER TAP ORDER FOOD ***
   if (
@@ -516,9 +520,11 @@ exports.receiveMessage = async (req, res) => {
         "⏳ No delivery agents available now. Try again soon."
       );
 
+      const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
+
     const order = await Order.create({
       customerId: user._id,
-      merchantId: sel.restId,
+      merchantId: restaurant.merchantId._id,
       items: [{ name: sel.itemName, price: sel.price }],
       totalAmount: sel.total,
       paymentMethod: msg.interactive.button_reply.id,
