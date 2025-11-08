@@ -224,7 +224,6 @@
 //   return phone.replace(/^\+/, "");
 // }
 // controllers/whatsappController.js
-
 const axios = require("axios");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
@@ -244,8 +243,8 @@ const AUTH = {
   "Content-Type": "application/json",
 };
 
-const formatPhone = (p) => p.replace(/^\+?/, "");
 const normalize = (p) => `+91${p.slice(-10)}`;
+const formatPhone = (p) => p.replace(/^\+?/, "");
 const cacheKey = (phone) => `user:${normalize(phone)}`;
 
 async function safeSend(payload) {
@@ -257,11 +256,7 @@ async function safeSend(payload) {
 }
 
 async function sendText(to, body) {
-  safeSend({
-    messaging_product: "whatsapp",
-    to: formatPhone(to),
-    text: { body },
-  });
+  safeSend({ messaging_product: "whatsapp", to: formatPhone(to), text: { body } });
 }
 
 async function sendButtons(to, body, buttons) {
@@ -269,11 +264,7 @@ async function sendButtons(to, body, buttons) {
     messaging_product: "whatsapp",
     to: formatPhone(to),
     type: "interactive",
-    interactive: {
-      type: "button",
-      body: { text: body },
-      action: { buttons },
-    },
+    interactive: { type: "button", body: { text: body }, action: { buttons } },
   });
 }
 
@@ -297,13 +288,9 @@ async function requestLocation(to) {
     type: "interactive",
     interactive: {
       type: "location_request_message",
-      body: {
-        text: "📍 Please share your live location to continue.",
-      },
-      action: {
-        name: "send_location", // ✅ REQUIRED FIELD
-      },
-    },
+      body: { text: "📍 Please share your live location to continue." },
+      action: { name: "send_location" }
+    }
   });
 }
 
@@ -315,14 +302,21 @@ async function updateCache(user) {
 
 async function getUser(phone) {
   phone = normalize(phone);
-
   const key = cacheKey(phone);
 
   let cached = await redis.get(key);
-  if (cached) return User.hydrate(JSON.parse(cached));
+  if (cached) {
+    const doc = User.hydrate(JSON.parse(cached));
+    doc.$isNew = false;
+    return doc;
+  }
 
   cached = localCache.get(key);
-  if (cached) return User.hydrate(cached);
+  if (cached) {
+    const doc = User.hydrate(cached);
+    doc.$isNew = false;
+    return doc;
+  }
 
   let user = await User.findOne({ phone });
   if (!user) user = await User.create({ phone });
@@ -333,45 +327,33 @@ async function getUser(phone) {
 
 function distanceKM(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+  const dLat = (lat2 - lat1) * Math.PI/180;
+  const dLon = (lon2 - lon1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
 function parseFood(text) {
   text = text.toLowerCase();
-  const budgetMatch = text.match(/\d+/);
-  const budget = budgetMatch ? Number(budgetMatch[0]) : null;
-  const item = text.replace(/\d+|under|budget|below|rs|₹/g, "").trim();
+  const budget = Number((text.match(/\d+/) || [])[0]);
+  const item = text.replace(/\d+|under|below|rs|₹/g, "").trim();
   return { item, budget };
 }
 
 async function searchMenu({ item, budget }) {
   const results = await Restaurant.aggregate([
     { $unwind: "$menuItems" },
-    {
-      $match: {
-        "menuItems.isAvailable": true,
-        "menuItems.name": { $regex: item, $options: "i" },
-        "menuItems.price": { $lte: budget },
-      },
-    },
-    { $sort: { "menuItems.price": 1 } },
-    { $limit: 20 },
+    { $match: { "menuItems.isAvailable": true, "menuItems.name": { $regex: item, $options: "i" }, "menuItems.price": { $lte: budget } } },
+    { $sort: { "menuItems.price": 1 } }
   ]);
 
-  return results.map((r) => ({
+  return results.slice(0, 10).map((r) => ({
     id: `ITEM_${r._id}_${r.menuItems._id}`,
-    title: `${r.menuItems.name} · ₹${r.menuItems.price}`,
+    title: `${r.menuItems.name} · ₹${r.menuItems.price}`
   }));
 }
 
-// =========== WEBHOOK VERIFY ============
+// =============== WEBHOOK VERIFY ===============
 exports.verifyWebhook = (req, res) => {
   if (req.query["hub.verify_token"] === VERIFY_TOKEN)
     return res.send(req.query["hub.challenge"]);
@@ -380,7 +362,7 @@ exports.verifyWebhook = (req, res) => {
 
 // =============== MAIN FLOW ===============
 exports.receiveMessage = async (req, res) => {
-  res.sendStatus(200); // respond IMMEDIATELY to prevent duplicates
+  res.sendStatus(200);
 
   const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
   if (!msg) return;
@@ -392,75 +374,47 @@ exports.receiveMessage = async (req, res) => {
   const phone = normalize(msg.from);
   const user = await getUser(phone);
 
-  // *** STEP 1: USER SAYS HI ***
   if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
     user.chatState = "WAITING_LOCATION";
     await user.save();
     await updateCache(user);
-    await sendText(phone, "👋 Hello! To begin, please share your location.");
+    await sendText(phone, "👋 Hello! Please share your location to continue.");
     return requestLocation(phone);
   }
 
-  // *** STEP 2: USER SENDS LOCATION ***
-  // STEP 2: USER SENDS LOCATION
   if (msg.type === "location") {
-    const { latitude, longitude } = msg.location;
-    user.location = { lat: Number(latitude), lng: Number(longitude) };
+    user.location = { lat: Number(msg.location.latitude), lng: Number(msg.location.longitude) };
     await user.save();
     await updateCache(user);
 
     const restaurants = await Restaurant.find().populate("merchantId");
 
-const nearby = restaurants.filter(r => {
-  const mLoc = r.merchantId?.address?.location; // ✅ CORRECT PATH
-  if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
+    const nearby = restaurants.filter(r => {
+      const mLoc = r.merchantId?.address?.location;
+      if (!mLoc) return false;
+      return distanceKM(user.location.lat, user.location.lng, Number(mLoc.lat), Number(mLoc.lng)) <= 5;
+    });
 
-  const restaurantLat = Number(mLoc.lat);
-  const restaurantLng = Number(mLoc.lng);
-
-  return distanceKM(
-    Number(user.location.lat),
-    Number(user.location.lng),
-    restaurantLat,
-    restaurantLng
-  ) <= 5; // 5km radius
-});
-
-
-    if (!nearby.length)
-      return sendText(
-        phone,
-        "😕 Sorry, we are not yet available in your location."
-      );
+    if (!nearby.length) return sendText(phone, "😕 Sorry, we are not delivering to your location yet.");
 
     return sendButtons(phone, "✅ We deliver in your area!", [
-      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } },
+      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
     ]);
   }
 
-  // *** STEP 3: USER TAP ORDER FOOD ***
-  if (
-    msg.type === "interactive" &&
-    msg.interactive.button_reply?.id === "ORDER_FOOD"
-  ) {
+  if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
     user.chatState = "ASK_ITEM";
     await user.save();
     await updateCache(user);
-    return sendText(
-      phone,
-      "Tell me what you want. Example: *biryani under 150*"
-    );
+    return sendText(phone, "Tell me what you want.\nExample: *biryani under 150*");
   }
 
-  // *** STEP 4: USER TYPES FOOD REQUEST ***
   if (user.chatState === "ASK_ITEM" && msg.type === "text") {
     const parsed = parseFood(msg.text.body);
-    if (!parsed.budget || !parsed.item)
-      return sendText(phone, "⚠️ Example: biryani under 200");
+    if (!parsed.item || !parsed.budget) return sendText(phone, "⚠️ Example: *biryani under 200*");
 
     const rows = await searchMenu(parsed);
-    if (!rows.length)
-      return sendText(phone, "❌ No matching food found. Try another item.");
+    if (!rows.length) return sendText(phone, "❌ No matching foods found.");
 
     user.tempSearch = parsed;
     user.chatState = "SELECT_ITEM";
@@ -470,10 +424,9 @@ const nearby = restaurants.filter(r => {
     return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
   }
 
-  // *** STEP 5: USER SELECTS ITEM ***
   if (msg.type === "interactive" && msg.interactive.list_reply) {
     const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
-    const restaurant = await Restaurant.findById(restId);
+    const restaurant = await Restaurant.findById(restId).populate("merchantId");
     const item = restaurant.menuItems.id(itemId);
     const total = item.price + 29;
 
@@ -482,47 +435,26 @@ const nearby = restaurants.filter(r => {
     await user.save();
     await updateCache(user);
 
-    return sendButtons(
-      phone,
-      `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`,
-      [
-        { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
-        { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
-      ]
-    );
+    return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
+      { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
+      { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
+    ]);
   }
 
-  // *** STEP 6: PAYMENT SELECTED → ASSIGN AGENT ***
-  if (
-    msg.type === "interactive" &&
-    ["COD", "UPI"].includes(msg.interactive.button_reply?.id)
-  ) {
+  if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
     const sel = user.tempOrder;
     const agents = await Agent.find({ isOnline: true });
 
-    let best = null,
-      bd = Infinity;
+    let best = null, bd = Infinity;
     for (const a of agents) {
       if (!a.currentLocation) continue;
-      const d = distanceKM(
-        a.currentLocation.lat,
-        a.currentLocation.lng,
-        user.location.lat,
-        user.location.lng
-      );
-      if (d < bd) {
-        bd = d;
-        best = a;
-      }
+      const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, user.location.lat, user.location.lng);
+      if (d < bd) { bd = d; best = a; }
     }
 
-    if (!best)
-      return sendText(
-        phone,
-        "⏳ No delivery agents available now. Try again soon."
-      );
+    if (!best) return sendText(phone, "⏳ No available delivery agents right now.");
 
-      const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
+    const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
 
     const order = await Order.create({
       customerId: user._id,
@@ -543,9 +475,6 @@ const nearby = restaurants.filter(r => {
     await user.save();
     await updateCache(user);
 
-    return sendText(
-      phone,
-      `🎉 Order Confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`
-    );
+    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
   }
 };
