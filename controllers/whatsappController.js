@@ -403,55 +403,29 @@ exports.receiveMessage = async (req, res) => {
 
   // *** STEP 2: USER SENDS LOCATION ***
   // STEP 2: USER SENDS LOCATION
-if (msg.type === "location") {
+  if (msg.type === "location") {
   const { latitude, longitude } = msg.location;
   user.location = { lat: Number(latitude), lng: Number(longitude) };
-  user.chatState = null;
   await user.save(); 
   await updateCache(user);
 
-  // Fetch restaurant + merchant (because merchant has the real coordinates)
   const restaurants = await Restaurant.find().populate("merchantId");
-  console.log(restaurants)
-  const dummy = restaurants.merchantId?.address.location;
-  const mLoc = restaurants.merchantId?.location;
-  
-  const restaurantLat = Number(mLoc.lat);
-    const restaurantLng = Number(mLoc.lng);
-
-  const restaurantLat1 = Number(dummy.lat);
-    const restaurantLng2 = Number(dummy.lng);
-    console.log(restaurantLat, restaurantLng, restaurantLat1, restaurantLng2)
-    console.log(Number(user.location.lat),
-      Number(user.location.lng))
 
   const nearby = restaurants.filter(r => {
-    const mLoc = r.merchantId?.location;
-    
-    if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
-
-    const restaurantLat = Number(mLoc.lat);
-    const restaurantLng = Number(mLoc.lng);
-
-    const restaurantLat1 = Number(dummy.lat);
-    const restaurantLng2 = Number(dummy.lng);
-    console.log(restaurantLat, restaurantLng, restaurantLat1, restaurantLng2)
-    console.log(Number(user.location.lat),
-      Number(user.location.lng))
+    const rLoc = r.location; // ✅ use restaurant location
+    if (!rLoc || rLoc.lat == null || rLoc.lng == null) return false;
 
     return distanceKM(
       Number(user.location.lat),
       Number(user.location.lng),
-      restaurantLat,
-      restaurantLng
-    ) <= 5; // ✅ 5 KM search radius
+      Number(rLoc.lat),
+      Number(rLoc.lng)
+    ) <= 5;
   });
-console.log(nearby.length)
-  if (!nearby.length) {
-    return sendText(phone, "😕 Sorry, we are not yet available in your location.");
-  }
 
-  // ✅ Restaurant(s) detected correctly now
+  if (!nearby.length)
+    return sendText(phone, "😕 Sorry, we are not yet available in your location.");
+
   return sendButtons(phone, "✅ We deliver in your area!", [
     { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
   ]);
