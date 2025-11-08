@@ -411,22 +411,21 @@ exports.receiveMessage = async (req, res) => {
 
     const restaurants = await Restaurant.find().populate("merchantId");
 
-    const nearby = restaurants.filter((r) => {
-      const mLoc = r.merchantId?.address?.location; // ✅ CORRECT PATH
-      if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
+const nearby = restaurants.filter(r => {
+  const mLoc = r.merchantId?.address?.location; // ✅ CORRECT PATH
+  if (!mLoc || mLoc.lat == null || mLoc.lng == null) return false;
 
-      const restaurantLat = Number(mLoc.lat);
-      const restaurantLng = Number(mLoc.lng);
+  const restaurantLat = Number(mLoc.lat);
+  const restaurantLng = Number(mLoc.lng);
 
-      return (
-        distanceKM(
-          Number(user.location.lat),
-          Number(user.location.lng),
-          restaurantLat,
-          restaurantLng
-        ) <= 5
-      ); // 5km radius
-    });
+  return distanceKM(
+    Number(user.location.lat),
+    Number(user.location.lng),
+    restaurantLat,
+    restaurantLng
+  ) <= 5; // 5km radius
+});
+
 
     if (!nearby.length)
       return sendText(
@@ -523,9 +522,7 @@ exports.receiveMessage = async (req, res) => {
         "⏳ No delivery agents available now. Try again soon."
       );
 
-    const restaurant = await Restaurant.findById(sel.restId).populate(
-      "merchantId"
-    );
+      const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
 
     const order = await Order.create({
       customerId: user._id,
