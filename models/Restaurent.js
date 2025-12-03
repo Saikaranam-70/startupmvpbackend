@@ -12,11 +12,13 @@ const restaurantSchema = new mongoose.Schema({
       category: String,
       isAvailable: { type: Boolean, default: true },
 
+
       // ⭐ Veg / Non-Veg Classification
       type: {
         type: String,
         enum: ["VEG", "NON-VEG"],
-        required: true
+        required: true,
+        default:"VEG"
       }
     }
   ],
