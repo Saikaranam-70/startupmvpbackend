@@ -26,8 +26,8 @@ const restaurantSchema = new mongoose.Schema({
   deliveryTime: Number,
   minOrderValue: Number,
 
-  ratingSum: { type: Number, default: 0 },
-  ratingCount: { type: Number, default: 0 },
+  ratingSum: { type: Number, default: 5 },
+  ratingCount: { type: Number, default: 5 },
 });
 
 restaurantSchema.virtual("rating").get(function () {

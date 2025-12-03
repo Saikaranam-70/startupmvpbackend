@@ -535,9 +535,11 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
   }
 
   const rows = items.slice(0, 10).map(r => ({
-    id: `ITEM_${r._id}_${r.menuItems._id}`,
-    title: `${r.menuItems.name} · ₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1)}`
-  }));
+  id: `ITEM_${r._id}_${r.menuItems._id}`,
+  title: r.menuItems.name.substring(0, 24),  // <= 24 chars
+  description: `₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1)}` // safe
+}));
+
 
   user.chatState = "SELECT_ITEM";
   await user.save();
