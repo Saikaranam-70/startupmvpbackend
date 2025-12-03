@@ -237,386 +237,822 @@
 
 
 
-const axios = require("axios");
-const User = require("../models/User");
-const Restaurant = require("../models/Restaurent");
-const Order = require("../models/Order");
-const Agent = require("../models/Agent");
-const redis = require("../config/redis");
-const NodeCache = require("node-cache");
-const localCache = new NodeCache({ stdTTL: 60 });
-require("dotenv").config();
+// const axios = require("axios");
+// const User = require("../models/User");
+// const Restaurant = require("../models/Restaurent");
+// const Order = require("../models/Order");
+// const Agent = require("../models/Agent");
+// const redis = require("../config/redis");
+// const NodeCache = require("node-cache");
+// const localCache = new NodeCache({ stdTTL: 60 });
+// require("dotenv").config();
 
-const VERIFY_TOKEN = process.env.secret_key;
+// const VERIFY_TOKEN = process.env.secret_key;
 
-const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
-const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBQLhBwtBi5NXI75rFeNxiJMrLZBBqoDaANcy6g9bhnntLSLlkYH9xm5tmnriyF37CbMNVrTH3EwZA1GfZA774Hw1ZAfMmZCz9sj0ZBu8JZAXZBJcL3jV793pgN7e5NKdyTUPXuH6w2pXkWAPg6qtz1NSf3amfiZBIiQDaE7lVlFfZCbKBankDoNiPicdzk7kZBQVU3M27kCdIjeCGKh8yHfpJUQnuxKZBvSTq1hjo7htx2ZAAAutbMzkJPmJzVTzHvIc98sFmqcEN61p6LUJpPDwZDZD`,
-  "Content-Type": "application/json",
+// const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
+// const AUTH = {
+//   Authorization: `Bearer EAATRMkskE2oBQLhBwtBi5NXI75rFeNxiJMrLZBBqoDaANcy6g9bhnntLSLlkYH9xm5tmnriyF37CbMNVrTH3EwZA1GfZA774Hw1ZAfMmZCz9sj0ZBu8JZAXZBJcL3jV793pgN7e5NKdyTUPXuH6w2pXkWAPg6qtz1NSf3amfiZBIiQDaE7lVlFfZCbKBankDoNiPicdzk7kZBQVU3M27kCdIjeCGKh8yHfpJUQnuxKZBvSTq1hjo7htx2ZAAAutbMzkJPmJzVTzHvIc98sFmqcEN61p6LUJpPDwZDZD`,
+//   "Content-Type": "application/json",
+// };
+
+// const normalize = (p) => `+91${p.slice(-10)}`;
+// const formatPhone = (p) => p.replace(/^\+?/, "");
+// const cacheKey = (phone) => `user:${normalize(phone)}`;
+
+// async function safeSend(payload) {
+//   try {
+//     await axios.post(WABA_URL, payload, { headers: AUTH });
+//   } catch (err) {
+//     console.error("SEND ERROR:", err.response?.data || err.message);
+//   }
+// }
+
+// async function sendText(to, body) {
+//   safeSend({ messaging_product: "whatsapp", to: formatPhone(to), text: { body } });
+// }
+
+// async function sendButtons(to, body, buttons) {
+//   safeSend({
+//     messaging_product: "whatsapp",
+//     to: formatPhone(to),
+//     type: "interactive",
+//     interactive: { type: "button", body: { text: body }, action: { buttons } },
+//   });
+// }
+
+// async function sendList(to, body, rows) {
+//   safeSend({
+//     messaging_product: "whatsapp",
+//     to: formatPhone(to),
+//     type: "interactive",
+//     interactive: {
+//       type: "list",
+//       body: { text: body },
+//       action: { button: "Select", sections: [{ title: "Menu", rows }] },
+//     },
+//   });
+// }
+
+// async function requestLocation(to) {
+//   safeSend({
+//     messaging_product: "whatsapp",
+//     to: formatPhone(to),
+//     type: "interactive",
+//     interactive: {
+//       type: "location_request_message",
+//       body: { text: "📍 Please share your live location to continue." },
+//       action: { name: "send_location" }
+//     }
+//   });
+// }
+
+// async function updateCache(user) {
+//   const data = user.toObject();
+//   await redis.set(cacheKey(user.phone), JSON.stringify(data), "EX", 300);
+//   localCache.set(cacheKey(user.phone), data);
+// }
+
+// async function getUser(phone) {
+//   phone = normalize(phone);
+//   const key = cacheKey(phone);
+
+//   let cached = await redis.get(key);
+//   if (cached) return User.hydrate(JSON.parse(cached));
+
+//   cached = localCache.get(key);
+//   if (cached) return User.hydrate(cached);
+
+//   let user = await User.findOne({ phone });
+//   if (!user) user = await User.create({ phone });
+
+//   await updateCache(user);
+//   return user;
+// }
+
+// function distanceKM(lat1, lon1, lat2, lon2) {
+//   const R = 6371;
+//   const dLat = (lat2 - lat1) * Math.PI/180;
+//   const dLon = (lon2 - lon1) * Math.PI/180;
+//   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+//   return R * 2 * Math.asin(Math.sqrt(a));
+// }
+
+// function parseFood(text) {
+//   text = text.toLowerCase();
+//   const budget = Number((text.match(/\d+/) || [])[0]);
+//   const item = text.replace(/\d+|under|below|rs|₹/g, "").trim();
+//   return { item, budget };
+// }
+
+// async function searchMenu({ item, budget }) {
+//   const results = await Restaurant.aggregate([
+//     { $unwind: "$menuItems" },
+//     { $match: { "menuItems.isAvailable": true, "menuItems.name": { $regex: item, $options: "i" }, "menuItems.price": { $lte: budget } } },
+//     { $sort: { "menuItems.price": 1 } }
+//   ]);
+
+//   return results.slice(0, 10).map((r) => ({
+//     id: `ITEM_${r._id}_${r.menuItems._id}`,
+//     title: `${r.menuItems.name} · ₹${r.menuItems.price}`
+//   }));
+// }
+
+// // =============== SEND RATING REQUEST ===============
+// exports.sendRatingRequest = async (userId, orderId) => {
+//   const user = await User.findById(userId);
+//   if (!user) return;
+
+//   user.chatState = `RATING_${orderId}`;
+//   await user.save();
+//   await updateCache(user);
+
+//   await sendButtons(user.phone, "⭐ How was your food?\nPlease rate from 1 to 5", [
+//     { type: "reply", reply: { id: "R1", title: "⭐ 1" } },
+//     { type: "reply", reply: { id: "R2", title: "⭐⭐ 2" } },
+//     { type: "reply", reply: { id: "R3", title: "⭐⭐⭐ 3" } },
+//     { type: "reply", reply: { id: "R4", title: "⭐⭐⭐⭐ 4" } },
+//     { type: "reply", reply: { id: "R5", title: "⭐⭐⭐⭐⭐ 5" } },
+//   ]);
+// };
+
+// // =============== WEBHOOK VERIFY ===============
+// exports.verifyWebhook = (req, res) => {
+//   if (req.query["hub.verify_token"] === VERIFY_TOKEN)
+//     return res.send(req.query["hub.challenge"]);
+//   res.sendStatus(403);
+// };
+
+// // =============== MAIN FLOW ===============
+// exports.receiveMessage = async (req, res) => {
+//   res.sendStatus(200);
+
+//   const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+//   if (!msg) return;
+
+//   const msgId = msg.id;
+//   if (await redis.get(msgId)) return;
+//   await redis.set(msgId, 1, "EX", 300);
+
+//   const phone = normalize(msg.from);
+//   const user = await getUser(phone);
+
+//   // ===== RATING INPUT HANDLER =====
+//   if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("R")) {
+//     const rating = Number(msg.interactive.button_reply.id.slice(1));
+//     const state = user.chatState;
+
+//     if (state?.startsWith("RATING_")) {
+//       const orderId = state.split("_")[1];
+//       const order = await Order.findById(orderId);
+//       const restaurant = await Restaurant.findById(order.merchantId);
+
+//       restaurant.ratingSum += rating;
+//       restaurant.ratingCount += 1;
+//       await restaurant.save();
+
+//       user.chatState = null;
+//       await user.save();
+//       await updateCache(user);
+
+//       return sendText(phone, "🙏 Thanks for your rating! It really helps.");
+//     }
+//   }
+
+//   // ========== REST OF YOUR FLOW REMAINS SAME ==========
+
+//   if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
+//     user.chatState = "WAITING_LOCATION";
+//     await user.save();
+//     await updateCache(user);
+//     await sendText(phone, "👋 Hello! Please share your location to continue.");
+//     return requestLocation(phone);
+//   }
+
+//   if (msg.type === "location") {
+//     user.location = { lat: Number(msg.location.latitude), lng: Number(msg.location.longitude) };
+//     await user.save();
+//     await updateCache(user);
+
+//     const restaurants = await Restaurant.find().populate("merchantId");
+
+//     const nearby = restaurants.filter(r => {
+//       const mLoc = r.merchantId?.address?.location;
+//       if (!mLoc) return false;
+//       return distanceKM(user.location.lat, user.location.lng, Number(mLoc.lat), Number(mLoc.lng)) <= 5;
+//     });
+
+//     if (!nearby.length) return sendText(phone, "😕 Sorry, we are not delivering to your location yet.");
+
+//     return sendButtons(phone, "✅ We deliver in your area!", [
+//       { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
+//     ]);
+//   }
+
+//   if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
+//     user.chatState = "ASK_TYPE";
+//     await user.save();
+//     await updateCache(user);
+
+//     return sendButtons(phone, "What would you like to eat ?", [
+//       {type: "reply", reply: {id: "TYPE_VEG", title: "🥦 VEG"}},
+//       { type: "reply", reply: { id: "TYPE_NONVEG", title: "🍗 NON-VEG" } }
+//     ])
+//   }
+
+//   if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("TYPE_")) {
+
+//     const foodType = msg.interactive.button_reply.id === "TYPE_VEG" ? "VEG" : "NON-VEG";
+//     user.tempType = foodType;
+//     user.chatState = "ASK_CATEGORY";
+//     await user.save();
+//     await updateCache(user);
+
+//     // Extract unique categories for selected type
+//     const categories = await Restaurant.aggregate([
+//       { $unwind: "$menuItems" },
+//       { $match: { "menuItems.type": foodType } },
+//       { $group: { _id: "$menuItems.category" } }
+//     ]);
+
+//     const rows = categories.map(c => ({
+//       id: `CAT_${c._id}`,
+//       title: c._id
+//     }));
+
+//     return sendList(phone, `Choose a category (${foodType})`, rows);
+// }
+
+// if(msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("CAT_")){
+//   const category = msg.interactive.list_reply.id.replace("CAT_", "");
+//   user.tempCategory = category;
+//   user.chatState = "ASK_BUDGET";
+//   await user.save();
+//   await updateCache(user);
+
+//    const rows = [
+//       { id: "BUDGET_0_100", title: "Below ₹100" },
+//       { id: "BUDGET_100_150", title: "₹100 - ₹150" },
+//       { id: "BUDGET_150_200", title: "₹150 - ₹200" },
+//       { id: "BUDGET_200_250", title: "₹200 - ₹250" },
+//       { id: "BUDGET_250_300", title: "₹250 - ₹300" },
+//       { id: "BUDGET_300_400", title: "₹300 - ₹400" }
+//     ];
+
+//     return sendList(phone, `Choose your budget range (${category})`, rows);
+// }
+
+// if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BUDGET_")) {
+//   const [_, min, max] = msg.interactive.list_reply.id.split("_");
+//   const minPrice = Number(min);
+//   const maxPrice = Number(max);
+
+//   const items = await Restaurant.aggregate([
+//     { $unwind: "$menuItems" },
+//     {
+//       $match: {
+//         "menuItems.type": user.tempType,
+//         "menuItems.category": user.tempCategory,
+//         "menuItems.isAvailable": true,
+//         "menuItems.price": { $gte: minPrice, $lte: maxPrice }
+//       }
+//     },
+//     {
+//       $addFields: {
+//         "menuItems.rating": {
+//           $cond: [
+//             { $eq: ["$ratingCount", 0] },
+//             0,
+//             { $divide: ["$ratingSum", "$ratingCount"] }
+//           ]
+//         }
+//       }
+//     },
+//     { $sort: { "menuItems.price": 1 } }
+//   ]);
+
+//   if (!items.length) {
+//     return sendText(phone, "❌ No items found in this budget.");
+//   }
+
+//   const rows = items.slice(0, 10).map(r => ({
+//   id: `ITEM_${r._id}_${r.menuItems._id}`,
+//   title: r.menuItems.name.substring(0, 24),  // <= 24 chars
+//   description: `₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1)}` // safe
+// }));
+
+
+//   user.chatState = "SELECT_ITEM";
+//   await user.save();
+//   await updateCache(user);
+
+//   return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
+// }
+
+
+//   if (user.chatState === "ASK_ITEM" && msg.type === "text") {
+//     const parsed = parseFood(msg.text.body);
+//     if (!parsed.item || !parsed.budget) return sendText(phone, "⚠️ Example: *biryani under 200*");
+
+//     const rows = await searchMenu(parsed);
+//     if (!rows.length) return sendText(phone, "❌ No matching foods found.");
+
+//     user.tempSearch = parsed;
+//     user.chatState = "SELECT_ITEM";
+//     await user.save();
+//     await updateCache(user);
+
+//     return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
+//   }
+
+//   if (msg.type === "interactive" && msg.interactive.list_reply) {
+//     const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
+//     const restaurant = await Restaurant.findById(restId).populate("merchantId");
+//     const item = restaurant.menuItems.id(itemId);
+//     const total = item.price + 29;
+
+//     user.tempOrder = { restId, itemName: item.name, price: item.price, total };
+//     user.markModified("tempOrder");
+//     user.chatState = "ASK_PAYMENT";
+//     await user.save();
+//     await updateCache(user);
+
+//     return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
+//       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
+//       { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
+//     ]);
+//   }
+
+//   if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
+//     const sel = user.tempOrder;
+//     const agents = await Agent.find({ isOnline: true });
+
+//     let best = null, bd = Infinity;
+//     for (const a of agents) {
+//       if (!a.currentLocation) continue;
+//       const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, user.location.lat, user.location.lng);
+//       if (d < bd) { bd = d; best = a; }
+//     }
+
+//     if (!best) return sendText(phone, "⏳ No available delivery agents right now.");
+
+//     const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
+
+//     const order = await Order.create({
+//       customerId: user._id,
+//       merchantId: restaurant.merchantId._id,
+//       items: [{ name: sel.itemName, price: sel.price }],
+//       totalAmount: sel.total,
+//       deliveryAddress: user.location,
+//       paymentMethod: msg.interactive.button_reply.id,
+//       agentId: best._id,
+//       status: "ASSIGNED",
+//     });
+
+//     best.isOnline = false;
+//     best.currentOrderId = order._id;
+//     await best.save();
+
+//     user.chatState = null;
+//     user.tempOrder = null;
+//     await user.save();
+//     await updateCache(user);
+
+//     return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+//   }
+// };
+
+/*
+  Optimized WhatsApp ordering webhook handler
+  - Single cache: Redis
+  - Unified phone formatting (WhatsApp expects numbers without '+')
+  - Proper handling of list_reply vs button_reply
+  - Truncate list titles to <=24 chars and move price/rating to description
+  - Defensive checks (null menu item, missing user location, etc.)
+  - Clearer chatState using simple steps
+  - Safer safeSend with error logging
+  - Minimal, readable structure for easy extension
+
+  Environment variables used:
+    - WABA_PHONE_NUMBER_ID  (numeric id for vX.Y endpoint)
+    - WABA_TOKEN            (Bearer token)
+    - SECRET_KEY            (webhook verify token)
+    - REDIS_URL             (configured redis client used by ../config/redis)
+
+  Save as a single file and adapt import paths for models/config as needed.
+*/
+
+const axios = require('axios');
+const User = require('../models/User');
+const Restaurant = require('../models/Restaurent');
+const Order = require('../models/Order');
+const Agent = require('../models/Agent');
+const redis = require('../config/redis'); // assume this exports a node-redis client wrapper with get/set
+require('dotenv').config();
+
+const WABA_PHONE_NUMBER_ID = process.env.WABA_PHONE_NUMBER_ID || '905586875961713';
+const WABA_TOKEN = process.env.WABA_TOKEN || process.env.WABA_ACCESS_TOKEN || process.env.WABA_TOKEN;
+const VERIFY_TOKEN = process.env.SECRET_KEY || process.env.secret_key;
+
+if (!WABA_TOKEN) {
+  console.warn('WABA_TOKEN not set. outgoing messages will fail. set process.env.WABA_TOKEN');
+}
+
+const WABA_URL = `https://graph.facebook.com/v22.0/${WABA_PHONE_NUMBER_ID}/messages`;
+const AUTH_HEADERS = () => ({ Authorization: `Bearer ${WABA_TOKEN}`, 'Content-Type': 'application/json' });
+
+// ----------------- Helper utilities -----------------
+const formatToWhatsApp = (phone) => {
+  // Ensure number is digits only and no leading +
+  if (!phone) return phone;
+  const digits = phone.replace(/[^0-9]/g, '');
+  // If user sent a 10-digit local number, prefix country code 91
+  if (digits.length === 10) return `91${digits}`;
+  return digits; // assume already contains country code
 };
-
-const normalize = (p) => `+91${p.slice(-10)}`;
-const formatPhone = (p) => p.replace(/^\+?/, "");
-const cacheKey = (phone) => `user:${normalize(phone)}`;
 
 async function safeSend(payload) {
   try {
-    await axios.post(WABA_URL, payload, { headers: AUTH });
+    const res = await axios.post(WABA_URL, payload, { headers: AUTH_HEADERS() });
+    return res.data;
   } catch (err) {
-    console.error("SEND ERROR:", err.response?.data || err.message);
+    // Try to log useful portion of response if available
+    console.error('SEND ERROR:', err.response?.data || err.message);
+    return null;
   }
 }
 
 async function sendText(to, body) {
-  safeSend({ messaging_product: "whatsapp", to: formatPhone(to), text: { body } });
+  const phone = formatToWhatsApp(to);
+  return safeSend({ messaging_product: 'whatsapp', to: phone, text: { body } });
 }
 
 async function sendButtons(to, body, buttons) {
-  safeSend({
-    messaging_product: "whatsapp",
-    to: formatPhone(to),
-    type: "interactive",
-    interactive: { type: "button", body: { text: body }, action: { buttons } },
+  const phone = formatToWhatsApp(to);
+  // Buttons limited to 3 on some templates; we're using interactive quick replies
+  return safeSend({
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'interactive',
+    interactive: { type: 'button', body: { text: body }, action: { buttons } },
   });
 }
 
-async function sendList(to, body, rows) {
-  safeSend({
-    messaging_product: "whatsapp",
-    to: formatPhone(to),
-    type: "interactive",
+async function sendList(to, body, rows, listTitle = 'Menu') {
+  const phone = formatToWhatsApp(to);
+
+  // rows must contain objects with id, title (<=24 chars) and optional description
+  const sections = [{ title: listTitle, rows }];
+  return safeSend({
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'interactive',
     interactive: {
-      type: "list",
+      type: 'list',
       body: { text: body },
-      action: { button: "Select", sections: [{ title: "Menu", rows }] },
+      action: { button: 'Select', sections },
     },
   });
 }
 
 async function requestLocation(to) {
-  safeSend({
-    messaging_product: "whatsapp",
-    to: formatPhone(to),
-    type: "interactive",
+  const phone = formatToWhatsApp(to);
+  return safeSend({
+    messaging_product: 'whatsapp',
+    to: phone,
+    type: 'interactive',
     interactive: {
-      type: "location_request_message",
-      body: { text: "📍 Please share your live location to continue." },
-      action: { name: "send_location" }
-    }
+      type: 'location_request_message',
+      body: { text: '📍 Please share your live location to continue.' },
+      action: { name: 'send_location' },
+    },
   });
 }
 
+const cacheKey = (phone) => `user:${phone}`;
+
 async function updateCache(user) {
-  const data = user.toObject();
-  await redis.set(cacheKey(user.phone), JSON.stringify(data), "EX", 300);
-  localCache.set(cacheKey(user.phone), data);
+  const data = user.toObject ? user.toObject() : user;
+  try {
+    await redis.set(cacheKey(user.phone), JSON.stringify(data), 'EX', 300);
+  } catch (err) {
+    // If redis wrapper expects different args, adjust accordingly - keep it silent
+    try { await redis.set(cacheKey(user.phone), JSON.stringify(data)); } catch(e){}
+  }
 }
 
-async function getUser(phone) {
-  phone = normalize(phone);
+async function getUser(phoneRaw) {
+  const phone = formatToWhatsApp(phoneRaw);
   const key = cacheKey(phone);
 
-  let cached = await redis.get(key);
-  if (cached) return User.hydrate(JSON.parse(cached));
-
-  cached = localCache.get(key);
-  if (cached) return User.hydrate(cached);
+  try {
+    const cached = await redis.get(key);
+    if (cached) return User.hydrate(JSON.parse(cached));
+  } catch (err) {
+    // ignore redis errors and fall back to DB
+  }
 
   let user = await User.findOne({ phone });
   if (!user) user = await User.create({ phone });
-
   await updateCache(user);
   return user;
 }
 
 function distanceKM(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI/180;
-  const dLon = (lon2 - lon1) * Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  const toRad = (x) => (x * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.asin(Math.sqrt(a));
 }
 
-function parseFood(text) {
-  text = text.toLowerCase();
-  const budget = Number((text.match(/\d+/) || [])[0]);
-  const item = text.replace(/\d+|under|below|rs|₹/g, "").trim();
-  return { item, budget };
+// Truncate titles to <= 24 chars for WhatsApp list rows
+function safeTitle(name) {
+  if (!name) return '';
+  const t = name.trim();
+  return t.length <= 24 ? t : `${t.slice(0, 21)}...`;
 }
 
-async function searchMenu({ item, budget }) {
-  const results = await Restaurant.aggregate([
-    { $unwind: "$menuItems" },
-    { $match: { "menuItems.isAvailable": true, "menuItems.name": { $regex: item, $options: "i" }, "menuItems.price": { $lte: budget } } },
-    { $sort: { "menuItems.price": 1 } }
+// ----------------- Aggregation helpers -----------------
+async function getCategoriesForType(type) {
+  // returns array of category strings
+  const categories = await Restaurant.aggregate([
+    { $unwind: '$menuItems' },
+    { $match: { 'menuItems.type': type } },
+    { $group: { _id: '$menuItems.category' } },
+    { $project: { _id: 0, category: '$_id' } },
   ]);
-
-  return results.slice(0, 10).map((r) => ({
-    id: `ITEM_${r._id}_${r.menuItems._id}`,
-    title: `${r.menuItems.name} · ₹${r.menuItems.price}`
-  }));
+  return categories.map((c) => c.category).filter(Boolean);
 }
 
-// =============== SEND RATING REQUEST ===============
-exports.sendRatingRequest = async (userId, orderId) => {
-  const user = await User.findById(userId);
-  if (!user) return;
-
-  user.chatState = `RATING_${orderId}`;
-  await user.save();
-  await updateCache(user);
-
-  await sendButtons(user.phone, "⭐ How was your food?\nPlease rate from 1 to 5", [
-    { type: "reply", reply: { id: "R1", title: "⭐ 1" } },
-    { type: "reply", reply: { id: "R2", title: "⭐⭐ 2" } },
-    { type: "reply", reply: { id: "R3", title: "⭐⭐⭐ 3" } },
-    { type: "reply", reply: { id: "R4", title: "⭐⭐⭐⭐ 4" } },
-    { type: "reply", reply: { id: "R5", title: "⭐⭐⭐⭐⭐ 5" } },
-  ]);
-};
-
-// =============== WEBHOOK VERIFY ===============
-exports.verifyWebhook = (req, res) => {
-  if (req.query["hub.verify_token"] === VERIFY_TOKEN)
-    return res.send(req.query["hub.challenge"]);
-  res.sendStatus(403);
-};
-
-// =============== MAIN FLOW ===============
-exports.receiveMessage = async (req, res) => {
-  res.sendStatus(200);
-
-  const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-  if (!msg) return;
-
-  const msgId = msg.id;
-  if (await redis.get(msgId)) return;
-  await redis.set(msgId, 1, "EX", 300);
-
-  const phone = normalize(msg.from);
-  const user = await getUser(phone);
-
-  // ===== RATING INPUT HANDLER =====
-  if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("R")) {
-    const rating = Number(msg.interactive.button_reply.id.slice(1));
-    const state = user.chatState;
-
-    if (state?.startsWith("RATING_")) {
-      const orderId = state.split("_")[1];
-      const order = await Order.findById(orderId);
-      const restaurant = await Restaurant.findById(order.merchantId);
-
-      restaurant.ratingSum += rating;
-      restaurant.ratingCount += 1;
-      await restaurant.save();
-
-      user.chatState = null;
-      await user.save();
-      await updateCache(user);
-
-      return sendText(phone, "🙏 Thanks for your rating! It really helps.");
-    }
-  }
-
-  // ========== REST OF YOUR FLOW REMAINS SAME ==========
-
-  if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
-    user.chatState = "WAITING_LOCATION";
-    await user.save();
-    await updateCache(user);
-    await sendText(phone, "👋 Hello! Please share your location to continue.");
-    return requestLocation(phone);
-  }
-
-  if (msg.type === "location") {
-    user.location = { lat: Number(msg.location.latitude), lng: Number(msg.location.longitude) };
-    await user.save();
-    await updateCache(user);
-
-    const restaurants = await Restaurant.find().populate("merchantId");
-
-    const nearby = restaurants.filter(r => {
-      const mLoc = r.merchantId?.address?.location;
-      if (!mLoc) return false;
-      return distanceKM(user.location.lat, user.location.lng, Number(mLoc.lat), Number(mLoc.lng)) <= 5;
-    });
-
-    if (!nearby.length) return sendText(phone, "😕 Sorry, we are not delivering to your location yet.");
-
-    return sendButtons(phone, "✅ We deliver in your area!", [
-      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
-    ]);
-  }
-
-  if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
-    user.chatState = "ASK_TYPE";
-    await user.save();
-    await updateCache(user);
-
-    return sendButtons(phone, "What would you like to eat ?", [
-      {type: "reply", reply: {id: "TYPE_VEG", title: "🥦 VEG"}},
-      { type: "reply", reply: { id: "TYPE_NONVEG", title: "🍗 NON-VEG" } }
-    ])
-  }
-
-  if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("TYPE_")) {
-
-    const foodType = msg.interactive.button_reply.id === "TYPE_VEG" ? "VEG" : "NON-VEG";
-    user.tempType = foodType;
-    user.chatState = "ASK_CATEGORY";
-    await user.save();
-    await updateCache(user);
-
-    // Extract unique categories for selected type
-    const categories = await Restaurant.aggregate([
-      { $unwind: "$menuItems" },
-      { $match: { "menuItems.type": foodType } },
-      { $group: { _id: "$menuItems.category" } }
-    ]);
-
-    const rows = categories.map(c => ({
-      id: `CAT_${c._id}`,
-      title: c._id
-    }));
-
-    return sendList(phone, `Choose a category (${foodType})`, rows);
-}
-
-if(msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("CAT_")){
-  const category = msg.interactive.list_reply.id.replace("CAT_", "");
-  user.tempCategory = category;
-  user.chatState = "ASK_BUDGET";
-  await user.save();
-  await updateCache(user);
-
-   const rows = [
-      { id: "BUDGET_0_100", title: "Below ₹100" },
-      { id: "BUDGET_100_150", title: "₹100 - ₹150" },
-      { id: "BUDGET_150_200", title: "₹150 - ₹200" },
-      { id: "BUDGET_200_250", title: "₹200 - ₹250" },
-      { id: "BUDGET_250_300", title: "₹250 - ₹300" },
-      { id: "BUDGET_300_400", title: "₹300 - ₹400" }
-    ];
-
-    return sendList(phone, `Choose your budget range (${category})`, rows);
-}
-
-if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BUDGET_")) {
-  const [_, min, max] = msg.interactive.list_reply.id.split("_");
-  const minPrice = Number(min);
-  const maxPrice = Number(max);
-
+async function findItemsByBudget(type, category, minPrice, maxPrice, limit = 10) {
   const items = await Restaurant.aggregate([
-    { $unwind: "$menuItems" },
+    { $unwind: '$menuItems' },
     {
       $match: {
-        "menuItems.type": user.tempType,
-        "menuItems.category": user.tempCategory,
-        "menuItems.isAvailable": true,
-        "menuItems.price": { $gte: minPrice, $lte: maxPrice }
-      }
+        'menuItems.type': type,
+        'menuItems.category': category,
+        'menuItems.isAvailable': true,
+        'menuItems.price': { $gte: minPrice, $lte: maxPrice },
+      },
     },
     {
       $addFields: {
-        "menuItems.rating": {
-          $cond: [
-            { $eq: ["$ratingCount", 0] },
-            0,
-            { $divide: ["$ratingSum", "$ratingCount"] }
-          ]
-        }
-      }
+        itemPrice: '$menuItems.price',
+        itemName: '$menuItems.name',
+        itemId: '$menuItems._id',
+        restId: '$_id',
+        restaurantRatingSum: '$ratingSum',
+        restaurantRatingCount: '$ratingCount',
+      },
     },
-    { $sort: { "menuItems.price": 1 } }
+    { $sort: { itemPrice: 1 } },
+    { $limit: limit },
   ]);
 
-  if (!items.length) {
-    return sendText(phone, "❌ No items found in this budget.");
-  }
+  return items.map((r) => {
+    const rating = r.restaurantRatingCount ? r.restaurantRatingSum / r.restaurantRatingCount : 0;
+    return {
+      restId: r.restId.toString(),
+      itemId: r.itemId.toString(),
+      name: r.itemName,
+      price: r.itemPrice,
+      rating: Number(rating.toFixed(1)),
+    };
+  });
+}
 
-  const rows = items.slice(0, 10).map(r => ({
-  id: `ITEM_${r._id}_${r.menuItems._id}`,
-  title: r.menuItems.name.substring(0, 24),  // <= 24 chars
-  description: `₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1)}` // safe
-}));
-
-
-  user.chatState = "SELECT_ITEM";
+// ----------------- Main exported functions -----------------
+exports.sendRatingRequest = async (userId, orderId) => {
+  const user = await User.findById(userId);
+  if (!user) return;
+  user.chatState = { step: 'RATING', orderId };
   await user.save();
   await updateCache(user);
 
-  return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
-}
+  const buttons = [1, 2, 3, 4, 5].map((n, i) => ({ type: 'reply', reply: { id: `R${n}`, title: '⭐'.repeat(n) + ` ${n}` } }));
+  await sendButtons(user.phone, '⭐ How was your food? Please rate from 1 to 5', buttons);
+};
 
+exports.verifyWebhook = (req, res) => {
+  if (req.query['hub.verify_token'] === VERIFY_TOKEN) return res.send(req.query['hub.challenge']);
+  res.sendStatus(403);
+};
 
-  if (user.chatState === "ASK_ITEM" && msg.type === "text") {
-    const parsed = parseFood(msg.text.body);
-    if (!parsed.item || !parsed.budget) return sendText(phone, "⚠️ Example: *biryani under 200*");
+exports.receiveMessage = async (req, res) => {
+  // respond early to FB webhook
+  res.sendStatus(200);
 
-    const rows = await searchMenu(parsed);
-    if (!rows.length) return sendText(phone, "❌ No matching foods found.");
+  try {
+    const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!msg) return;
 
-    user.tempSearch = parsed;
-    user.chatState = "SELECT_ITEM";
-    await user.save();
-    await updateCache(user);
+    const msgId = msg.id;
+    try {
+      const seen = await redis.get(msgId);
+      if (seen) return; // dedupe
+      await redis.set(msgId, '1', 'EX', 300);
+    } catch (err) { /* ignore redis errors */ }
 
-    return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
-  }
+    const phone = formatToWhatsApp(msg.from);
+    const user = await getUser(phone);
 
-  if (msg.type === "interactive" && msg.interactive.list_reply) {
-    const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
-    const restaurant = await Restaurant.findById(restId).populate("merchantId");
-    const item = restaurant.menuItems.id(itemId);
-    const total = item.price + 29;
-
-    user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-    user.markModified("tempOrder");
-    user.chatState = "ASK_PAYMENT";
-    await user.save();
-    await updateCache(user);
-
-    return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
-      { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
-      { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
-    ]);
-  }
-
-  if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
-    const sel = user.tempOrder;
-    const agents = await Agent.find({ isOnline: true });
-
-    let best = null, bd = Infinity;
-    for (const a of agents) {
-      if (!a.currentLocation) continue;
-      const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, user.location.lat, user.location.lng);
-      if (d < bd) { bd = d; best = a; }
+    // Handle rating quick replies
+    if (msg.type === 'interactive' && msg.interactive.button_reply?.id?.startsWith('R')) {
+      const rating = Number(msg.interactive.button_reply.id.slice(1));
+      const state = user.chatState || {};
+      if (state.step === 'RATING' && state.orderId) {
+        const order = await Order.findById(state.orderId).lean();
+        if (order) {
+          const restaurant = await Restaurant.findById(order.merchantId);
+          if (restaurant) {
+            restaurant.ratingSum = (restaurant.ratingSum || 0) + rating;
+            restaurant.ratingCount = (restaurant.ratingCount || 0) + 1;
+            await restaurant.save();
+          }
+        }
+        user.chatState = null;
+        await user.save();
+        await updateCache(user);
+        return sendText(phone, '🙏 Thanks for your rating! It really helps.');
+      }
     }
 
-    if (!best) return sendText(phone, "⏳ No available delivery agents right now.");
+    // Basic text trigger
+    if (msg.type === 'text' && msg.text.body.trim().toLowerCase() === 'hi') {
+      user.chatState = { step: 'AWAIT_LOCATION' };
+      await user.save();
+      await updateCache(user);
+      await sendText(phone, '👋 Hello! Please share your location to continue.');
+      return requestLocation(phone);
+    }
 
-    const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
+    // Location message
+    if (msg.type === 'location') {
+      user.location = { lat: Number(msg.location.latitude), lng: Number(msg.location.longitude) };
+      await user.save();
+      await updateCache(user);
 
-    const order = await Order.create({
-      customerId: user._id,
-      merchantId: restaurant.merchantId._id,
-      items: [{ name: sel.itemName, price: sel.price }],
-      totalAmount: sel.total,
-      deliveryAddress: user.location,
-      paymentMethod: msg.interactive.button_reply.id,
-      agentId: best._id,
-      status: "ASSIGNED",
-    });
+      // Find nearby restaurants. Assumes restaurant.merchantId.address.location exists
+      const restaurants = await Restaurant.find().populate('merchantId');
+      const nearby = restaurants.filter((r) => {
+        const mLoc = r.merchantId?.address?.location;
+        if (!mLoc) return false;
+        return distanceKM(user.location.lat, user.location.lng, Number(mLoc.lat), Number(mLoc.lng)) <= 5;
+      });
 
-    best.isOnline = false;
-    best.currentOrderId = order._id;
-    await best.save();
+      if (!nearby.length) return sendText(phone, "😕 Sorry, we are not delivering to your location yet.");
 
-    user.chatState = null;
-    user.tempOrder = null;
-    await user.save();
-    await updateCache(user);
+      user.chatState = { step: 'ASK_TYPE' };
+      await user.save();
+      await updateCache(user);
 
-    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+      return sendButtons(phone, '✅ We deliver in your area! What would you like to do?', [
+        { type: 'reply', reply: { id: 'ORDER_FOOD', title: '🍽 Order Food' } },
+      ]);
+    }
+
+    // Handle Order Food button
+    if (msg.type === 'interactive' && msg.interactive.button_reply?.id === 'ORDER_FOOD') {
+      user.chatState = { step: 'ASK_TYPE' };
+      await user.save();
+      await updateCache(user);
+
+      return sendButtons(phone, 'What would you like to eat?', [
+        { type: 'reply', reply: { id: 'TYPE_VEG', title: '🥦 VEG' } },
+        { type: 'reply', reply: { id: 'TYPE_NONVEG', title: '🍗 NON-VEG' } },
+      ]);
+    }
+
+    // Handle type selection
+    if (msg.type === 'interactive' && msg.interactive.button_reply?.id?.startsWith('TYPE_')) {
+      const foodType = msg.interactive.button_reply.id === 'TYPE_VEG' ? 'VEG' : 'NON-VEG';
+      user.chatState = { step: 'ASK_CATEGORY', data: { type: foodType } };
+      await user.save();
+      await updateCache(user);
+
+      const categories = await getCategoriesForType(foodType);
+      if (!categories.length) return sendText(phone, `No categories found for ${foodType}.`);
+
+      const rows = categories.map((c) => ({ id: `CAT_${c}`, title: safeTitle(c), description: '' }));
+      return sendList(phone, `Choose a category (${foodType})`, rows);
+    }
+
+    // Handle category selection (list reply)
+    if (msg.type === 'interactive' && msg.interactive.list_reply?.id?.startsWith('CAT_')) {
+      const category = msg.interactive.list_reply.id.replace('CAT_', '');
+      const type = user.chatState?.data?.type || 'VEG';
+      user.chatState = { step: 'ASK_BUDGET', data: { type, category } };
+      await user.save();
+      await updateCache(user);
+
+      const rows = [
+        { id: 'BUDGET_0_100', title: 'Below ₹100' },
+        { id: 'BUDGET_100_150', title: '₹100 - ₹150' },
+        { id: 'BUDGET_150_200', title: '₹150 - ₹200' },
+        { id: 'BUDGET_200_250', title: '₹200 - ₹250' },
+        { id: 'BUDGET_250_300', title: '₹250 - ₹300' },
+        { id: 'BUDGET_300_400', title: '₹300 - ₹400' },
+      ];
+
+      return sendList(phone, `Choose your budget range (${category})`, rows);
+    }
+
+    // Handle budget selection (list reply)
+    if (msg.type === 'interactive' && msg.interactive.list_reply?.id?.startsWith('BUDGET_')) {
+      const [, minStr, maxStr] = msg.interactive.list_reply.id.split('_');
+      const minPrice = Number(minStr || 0);
+      const maxPrice = Number(maxStr || 99999);
+      const { type, category } = user.chatState?.data || {};
+
+      if (!category || !type) return sendText(phone, '❌ Flow broken. Please type "hi" to start over.');
+
+      const items = await findItemsByBudget(type, category, minPrice, maxPrice, 10);
+      if (!items.length) return sendText(phone, '❌ No items found in this budget.');
+
+      const rows = items.map((it) => ({
+        id: `ITEM_${it.restId}_${it.itemId}`,
+        title: safeTitle(it.name),
+        description: `₹${it.price} · ⭐${it.rating}`,
+      }));
+
+      user.chatState = { step: 'SELECT_ITEM', data: { type, category } };
+      await user.save();
+      await updateCache(user);
+
+      return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
+    }
+
+    // Handle item selection (list reply)
+    if (msg.type === 'interactive' && msg.interactive.list_reply?.id?.startsWith('ITEM_')) {
+      const [, restId, itemId] = msg.interactive.list_reply.id.split('_');
+
+      // Defensive: fetch restaurant and item
+      const restaurant = await Restaurant.findById(restId).populate('merchantId');
+      if (!restaurant) return sendText(phone, '⚠️ This restaurant is no longer available.');
+
+      const item = restaurant.menuItems.id(itemId);
+      if (!item) return sendText(phone, '⚠️ This item is not available anymore.');
+
+      const deliveryFee = 29;
+      const total = (item.price || 0) + deliveryFee;
+
+      user.tempOrder = { restId, itemName: item.name, price: item.price, total };
+      user.chatState = { step: 'ASK_PAYMENT', data: {} };
+      user.markModified && user.markModified('tempOrder');
+      await user.save();
+      await updateCache(user);
+
+      return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
+        { type: 'reply', reply: { id: 'COD', title: '💵 Cash' } },
+        { type: 'reply', reply: { id: 'UPI', title: '📲 UPI' } },
+      ]);
+    }
+
+    // Handle payment selection
+    if (msg.type === 'interactive' && ['COD', 'UPI'].includes(msg.interactive.button_reply?.id)) {
+      const paymentMethod = msg.interactive.button_reply.id;
+      const sel = user.tempOrder;
+      if (!sel) return sendText(phone, '⚠️ No active order found. Please start again by typing "hi".');
+
+      // find nearest agent
+      const agents = await Agent.find({ isOnline: true });
+      let best = null, bd = Infinity;
+      for (const a of agents) {
+        if (!a.currentLocation) continue;
+        const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, user.location?.lat, user.location?.lng);
+        if (d < bd) { bd = d; best = a; }
+      }
+
+      if (!best) return sendText(phone, '⏳ No available delivery agents right now.');
+
+      const restaurant = await Restaurant.findById(sel.restId).populate('merchantId');
+
+      const order = await Order.create({
+        customerId: user._id,
+        merchantId: restaurant.merchantId?._id || restaurant._id,
+        items: [{ name: sel.itemName, price: sel.price }],
+        totalAmount: sel.total,
+        deliveryAddress: user.location,
+        paymentMethod,
+        agentId: best._id,
+        status: 'ASSIGNED',
+      });
+
+      best.isOnline = false;
+      best.currentOrderId = order._id;
+      await best.save();
+
+      // clear user state
+      user.chatState = null;
+      user.tempOrder = null;
+      await user.save();
+      await updateCache(user);
+
+      return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+    }
+
+  } catch (err) {
+    console.error('Receive handler error:', err);
   }
 };
