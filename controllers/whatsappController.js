@@ -501,46 +501,51 @@ if(msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("CAT
     return sendList(phone, `Choose your budget range (${category})`, rows);
 }
 
-if(msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("BUDGET_")){
-  const [_, min, max] = msg.interactive.button_reply.id.split("_");
+if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BUDGET_")) {
+  const [_, min, max] = msg.interactive.list_reply.id.split("_");
   const minPrice = Number(min);
   const maxPrice = Number(max);
 
   const items = await Restaurant.aggregate([
-    {$unwind: "$menuItems"},
-    {$match:{
-      "menuItems.type": user.tempType,
-      "menuItems.category":user.tempCategory,
-      "menuItems.isAvailable":true,
-      "menuItems.price":{$gte: minPrice, $lte:maxPrice}
-    }},
-    {$addFields:{
-      "menuItems.rating":{
-        "menuItems.rating":{
-          $cond:[
-            {$eq:["$ratingCount", 0]}, 0,
-            {$divide: ["ratingSum", "$ratingCount"]}
+    { $unwind: "$menuItems" },
+    {
+      $match: {
+        "menuItems.type": user.tempType,
+        "menuItems.category": user.tempCategory,
+        "menuItems.isAvailable": true,
+        "menuItems.price": { $gte: minPrice, $lte: maxPrice }
+      }
+    },
+    {
+      $addFields: {
+        "menuItems.rating": {
+          $cond: [
+            { $eq: ["$ratingCount", 0] },
+            0,
+            { $divide: ["$ratingSum", "$ratingCount"] }
           ]
         }
       }
-    }},
-    {$sort: {"menuItems.price": 1}}
-  ])
+    },
+    { $sort: { "menuItems.price": 1 } }
+  ]);
 
-  if(!items.length){
-    return sendText(phone, "❌ No items found in this budget.")
+  if (!items.length) {
+    return sendText(phone, "❌ No items found in this budget.");
   }
-   const rows = items.slice(0, 10).map(r => ({
-        id: `ITEM_${r._id}_${r.menuItems._id}`,
-        title: `${r.menuItems.name} · ₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1)}`
-    }));
 
-    user.chatState = "SELECT_ITEM";
-    await user.save();
-    await updateCache(user);
+  const rows = items.slice(0, 10).map(r => ({
+    id: `ITEM_${r._id}_${r.menuItems._id}`,
+    title: `${r.menuItems.name} · ₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1)}`
+  }));
 
-    return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
+  user.chatState = "SELECT_ITEM";
+  await user.save();
+  await updateCache(user);
+
+  return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
 }
+
 
   if (user.chatState === "ASK_ITEM" && msg.type === "text") {
     const parsed = parseFood(msg.text.body);
