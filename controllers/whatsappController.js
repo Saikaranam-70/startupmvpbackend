@@ -651,14 +651,14 @@ require('dotenv').config();
 
 const WABA_PHONE_NUMBER_ID = process.env.WABA_PHONE_NUMBER_ID || '905586875961713';
 const WABA_TOKEN = process.env.WABA_TOKEN || process.env.WABA_ACCESS_TOKEN || process.env.WABA_TOKEN;
-const VERIFY_TOKEN = process.env.SECRET_KEY || process.env.secret_key;
+const VERIFY_TOKEN = process.env.secret_key || process.env.secret_key;
 
 if (!WABA_TOKEN) {
   console.warn('WABA_TOKEN not set. outgoing messages will fail. set process.env.WABA_TOKEN');
 }
 
 const WABA_URL = `https://graph.facebook.com/v22.0/${WABA_PHONE_NUMBER_ID}/messages`;
-const AUTH_HEADERS = () => ({ Authorization: `Bearer ${WABA_TOKEN}`, 'Content-Type': 'application/json' });
+const AUTH_HEADERS = () => ({ Authorization: `Bearer EAATRMkskE2oBQIoN4QePCytT6uHJxafp4ezFDjoSTAHqatK3LrumtrXYXDc5Vmoo6RWpBvwVJOkiGBMwGdtpzni13HelccLOv2a5kZAnZCANodTlzbzYZCZCmOvpF1b9bab7ieQHB9AoZBAiR8Ro0pZCIhMwu5NSZAio8Xh5GNiUDzvpLEdYtaEEmDACpmWa5BvXehXnPBHHIvfT9bNAjmcDttrL2qtM78R4cUGxur1PuTQfPZC1jHaZAytmdT5q3vgRtjYuNROhXy0s0sQJJl15yZBXCi`, 'Content-Type': 'application/json' });
 
 // ----------------- Helper utilities -----------------
 const formatToWhatsApp = (phone) => {

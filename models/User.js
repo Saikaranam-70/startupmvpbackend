@@ -21,7 +21,11 @@ const userSchema = new mongoose.Schema(
       lng: Number,
     },
 
-    chatState: { type: String, default: null },
+    chatState: {
+  type: Object,
+  default: null,
+}
+,
 
     // ⭐ Store temporarily selected VEG / NON-VEG
     tempType: {
