@@ -451,13 +451,59 @@ exports.receiveMessage = async (req, res) => {
     ]);
   }
 
-  if(msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_GROCERY"){
-    user.chatState = "ASK_GROCERY_LIST";
-    await user.save();
-    await updateCache(user);
+  if (
+  msg.type === "interactive" &&
+  msg.interactive.button_reply?.id === "ORDER_GROCERY"
+) {
+  user.chatState = "ASK_GROCERY_LIST";
+  await user.save();
+  await updateCache(user);
 
-
+  if (!user.location?.lat || !user.location?.lng) {
+    return sendText(phone, "📍 Please share location first. Type *hi* again.");
   }
+
+  // Fetch grocery stores
+  const stores = await GroceryStore.find().populate("merchantId");
+
+  // Filter by nearest stores
+  const nearbyStores = stores.filter((store) => {
+    const loc = store.merchantId?.address?.location;
+    if (!loc) return false;
+
+    const dist = distanceKM(
+      user.location.lat,
+      user.location.lng,
+      loc.lat,
+      loc.lng
+    );
+
+    return dist <= (store.deliveryRange || 5);
+  });
+
+  if (!nearbyStores.length) {
+    return sendText(phone, "😔 No grocery stores deliver to your location.");
+  }
+
+  // WhatsApp-safe titles (<= 24 chars)
+  const rows = nearbyStores.map((store) => {
+    let name = store.merchantId.storeName || "Grocery Store";
+    if (name.length > 24) name = name.slice(0, 21) + "...";
+
+    return {
+      id: `GROCERY_${store._id}`,
+      title: name,
+      description: store.merchantId.address.city || "Nearby Store",
+    };
+  });
+
+  return sendList(
+    phone,
+    "🛒 Select a grocery store near you:",
+    rows
+  );
+}
+
 
   if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
     user.chatState = "ASK_TYPE";
