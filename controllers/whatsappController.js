@@ -237,7 +237,6 @@
 
 
 
-
 const axios = require("axios");
 const User = require("../models/User");
 const Restaurant = require("../models/Restaurent");
@@ -250,10 +249,9 @@ require("dotenv").config();
 
 const VERIFY_TOKEN = process.env.secret_key;
 
-// ============= UTILITIES =============
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBP5H9MxIHZB8aZAMWdbxKYs3ZCeZAfUQejKOJeeRZCrKbDiiSEpWIGwxbJkoOI3eWGDlBGDeJwVsqSKDV4ioeCSAHbqoj2RZCFAlVX0jFJVNRnbJMnMgKYGmuZCTb5NTZCMhrXMsUaYJYEZCY17KMZBbuZCpPFtHTljkrBXW8u8V1Pma7dGpip4T2JfgUmDODyMtTyD9WYjsgxLy12ZByTZBXPS4iPLAgp6TG6kD9VUEzMZB1y7KYd5NvkyS6z1MyMquz8SXP5QEF0HVEy2IdhGlh8ZD`,
+  Authorization: `Bearer EAATRMkskE2oBQNZCtnXDcGMJvDHRq0E1IcImZBQPOMojSrKenZAOjmFadbE8OlpvFoFi4UFOVCvTZBmAP0viE4Yh9vJecwZBVJMI6TjG4htWSfVsR2EqnocZA8vZAeNkQwDlQENGzk4qBkWxkZCHcIOpW7hNW20srzz337RWPc1ZCQRSNxZBdKdE68dmq3jCcCgghfRL82yJu9C6n3kPpZBF6F9xyIlBQNyOzti8r2ZBvPkj5rKuCPQB7byqWM7rlRw9F2kZAXFyrpqmRJa0Yo9lJ3uHCJ6E4`,
   "Content-Type": "application/json",
 };
 
@@ -319,18 +317,10 @@ async function getUser(phone) {
   const key = cacheKey(phone);
 
   let cached = await redis.get(key);
-  if (cached) {
-    const doc = User.hydrate(JSON.parse(cached));
-    doc.$isNew = false;
-    return doc;
-  }
+  if (cached) return User.hydrate(JSON.parse(cached));
 
   cached = localCache.get(key);
-  if (cached) {
-    const doc = User.hydrate(cached);
-    doc.$isNew = false;
-    return doc;
-  }
+  if (cached) return User.hydrate(cached);
 
   let user = await User.findOne({ phone });
   if (!user) user = await User.create({ phone });
@@ -367,6 +357,24 @@ async function searchMenu({ item, budget }) {
   }));
 }
 
+// =============== SEND RATING REQUEST ===============
+exports.sendRatingRequest = async (userId, orderId) => {
+  const user = await User.findById(userId);
+  if (!user) return;
+
+  user.chatState = `RATING_${orderId}`;
+  await user.save();
+  await updateCache(user);
+
+  await sendButtons(user.phone, "⭐ How was your food?\nPlease rate from 1 to 5", [
+    { type: "reply", reply: { id: "R1", title: "⭐ 1" } },
+    { type: "reply", reply: { id: "R2", title: "⭐⭐ 2" } },
+    { type: "reply", reply: { id: "R3", title: "⭐⭐⭐ 3" } },
+    { type: "reply", reply: { id: "R4", title: "⭐⭐⭐⭐ 4" } },
+    { type: "reply", reply: { id: "R5", title: "⭐⭐⭐⭐⭐ 5" } },
+  ]);
+};
+
 // =============== WEBHOOK VERIFY ===============
 exports.verifyWebhook = (req, res) => {
   if (req.query["hub.verify_token"] === VERIFY_TOKEN)
@@ -388,32 +396,29 @@ exports.receiveMessage = async (req, res) => {
   const phone = normalize(msg.from);
   const user = await getUser(phone);
 
-  // ===== TRACK ORDER =====
-  if (msg.type === "text" && /track/i.test(msg.text.body)) {
+  // ===== RATING INPUT HANDLER =====
+  if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("R")) {
+    const rating = Number(msg.interactive.button_reply.id.slice(1));
+    const state = user.chatState;
 
-    if (!user.lastOrderId) {
-      return sendText(phone, "❗ You don't have any recent order to track.");
+    if (state?.startsWith("RATING_")) {
+      const orderId = state.split("_")[1];
+      const order = await Order.findById(orderId);
+      const restaurant = await Restaurant.findById(order.merchantId);
+
+      restaurant.ratingSum += rating;
+      restaurant.ratingCount += 1;
+      await restaurant.save();
+
+      user.chatState = null;
+      await user.save();
+      await updateCache(user);
+
+      return sendText(phone, "🙏 Thanks for your rating! It really helps.");
     }
-
-    const order = await Order.findById(user.lastOrderId).populate("agentId merchantId");
-    if (!order) return sendText(phone, "❗ Order not found.");
-
-    let statusText = "";
-    switch(order.status) {
-      case "ASSIGNED": statusText = "✅ Order assigned to delivery agent."; break;
-      case "PICKED_UP": statusText = "🚴‍♂️ Food has been picked up."; break;
-      case "DELIVERING": statusText = "📦 Order is on the way."; break;
-      case "DELIVERED": statusText = "🎉 Order Delivered!"; break;
-      default: statusText = `Status: ${order.status}`;
-    }
-
-    let locationInfo = "";
-    if (order.agentId?.currentLocation) {
-      locationInfo = `\n\n📍 Agent Live Location\nhttps://www.google.com/maps?q=${order.agentId.currentLocation.lat},${order.agentId.currentLocation.lng}`;
-    }
-
-    return sendText(phone, `🧾 *Order Tracking*\n\n${statusText}${locationInfo}\n\n👤 Agent: ${order.agentId?.name}\n📞 ${order.agentId?.phone}`);
   }
+
+  // ========== REST OF YOUR FLOW REMAINS SAME ==========
 
   if (msg.type === "text" && msg.text.body.toLowerCase() === "hi") {
     user.chatState = "WAITING_LOCATION";
@@ -513,12 +518,11 @@ exports.receiveMessage = async (req, res) => {
     best.currentOrderId = order._id;
     await best.save();
 
-    user.lastOrderId = order._id; // ✅ order tracking enabled
     user.chatState = null;
     user.tempOrder = null;
     await user.save();
     await updateCache(user);
 
-    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}\n\nReply *track* anytime to check status.`);
+    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
   }
 };

@@ -8,5 +8,8 @@ router.get("/:agentId", agentController.getAgentById);
 router.put("/online-status/:agentId", agentController.updateOnlineStatus);
 router.put("/update-location/:agentId", agentController.updateLocation);
 router.get("/nearby", agentController.getNearbyAgents);
+router.get("/:agentId/orders", agentController.getAssignedOrders);
+router.put("/:agentId/orders/:orderId/status", agentController.updateOrderStatus);
+
 
 module.exports = router;

@@ -15,6 +15,7 @@ const cacheKey = (id) => `agent:${id}`;
 exports.registerAgent = async (req, res) => {
   try {
     const { name, phone, password, type, vehicleType, vehicleNumber } = req.body;
+    console.log("called")
 
     if (!name || !phone || !type || !vehicleType) {
       return res.status(400).json({ message: "All required fields must be filled" });
@@ -35,7 +36,7 @@ exports.registerAgent = async (req, res) => {
       vehicleType,
       vehicleNumber,
     });
-
+    console.log("called")
     await agent.save();
 
     // Cache this agent for quick future reads
@@ -43,6 +44,7 @@ exports.registerAgent = async (req, res) => {
 
     res.status(201).json({ message: "Agent registered successfully", agent });
   } catch (error) {
+    console.log(error)
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
@@ -65,10 +67,11 @@ exports.loginAgent = async (req, res) => {
     const isMatch = await bcrypt.compare(password, agent.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: agent._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: agent._id }, process.env.secret_key, { expiresIn: "7d" });
 
     res.status(200).json({ message: "Login successful", token, agent });
   } catch (error) {
+    console.log(error)
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
@@ -168,6 +171,63 @@ exports.getNearbyAgents = async (req, res) => {
     }
 
     res.status(200).json({ count: nearby.length, nearby });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+
+const Order = require("../models/Order");
+
+// ✅ Get all assigned orders for an agent
+exports.getAssignedOrders = async (req, res) => {
+  try {
+    const { agentId } = req.params;
+
+    // Fetch orders assigned to this agent
+    const orders = await Order.find({ agentId })
+      .populate("customerId", "name phone")
+      .populate("merchantId", "name address")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ count: orders.length, orders });
+  } catch (error) {
+    res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+
+const allowedNextStatuses = {
+  ASSIGNED: ["CONFIRMED", "CANCELLED"],
+  CONFIRMED: ["DISPATCHED"],
+  DISPATCHED: ["DELIVERED"]
+};
+
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { agentId, orderId } = req.params;
+    const { status } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // Check if this agent is assigned to the order
+    if (order.agentId?.toString() !== agentId) {
+      return res.status(403).json({ message: "Not allowed to update this order" });
+    }
+
+    // Validate status transition
+    const validNext = allowedNextStatuses[order.status] || [];
+    if (!validNext.includes(status)) {
+      return res.status(400).json({
+        message: `Invalid status change. Allowed next: ${validNext.join(", ")}`,
+      });
+    }
+
+    order.status = status;
+    await order.save();
+
+    res.status(200).json({ message: "Order status updated successfully", order });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
