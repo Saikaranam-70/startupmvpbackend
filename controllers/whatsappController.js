@@ -489,14 +489,16 @@ if(msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("CAT
   await user.save();
   await updateCache(user);
 
-  return sendButtons(phone, `Choose your budget range for ${category}:`,[
-    { type: "reply", reply: { id: "BUDGET_0_100", title: "Below 100" } },
-      { type: "reply", reply: { id: "BUDGET_100_150", title: "100 - 150" } },
-      { type: "reply", reply: { id: "BUDGET_150_200", title: "150 - 200" } },
-      { type: "reply", reply: { id: "BUDGET_200_250", title: "200 - 250" } },
-      { type: "reply", reply: { id: "BUDGET_250_300", title: "250 - 300" } },
-      { type: "reply", reply: { id: "BUDGET_300_400", title: "300 - 400" } },
-  ])
+   const rows = [
+      { id: "BUDGET_0_100", title: "Below ₹100" },
+      { id: "BUDGET_100_150", title: "₹100 - ₹150" },
+      { id: "BUDGET_150_200", title: "₹150 - ₹200" },
+      { id: "BUDGET_200_250", title: "₹200 - ₹250" },
+      { id: "BUDGET_250_300", title: "₹250 - ₹300" },
+      { id: "BUDGET_300_400", title: "₹300 - ₹400" }
+    ];
+
+    return sendList(phone, `Choose your budget range (${category})`, rows);
 }
 
 if(msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("BUDGET_")){
