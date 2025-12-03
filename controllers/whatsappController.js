@@ -244,6 +244,7 @@ const Order = require("../models/Order");
 const Agent = require("../models/Agent");
 const redis = require("../config/redis");
 const NodeCache = require("node-cache");
+const GroceryStore = require("../models/GroceryStore");
 const localCache = new NodeCache({ stdTTL: 60 });
 require("dotenv").config();
 
@@ -444,8 +445,18 @@ exports.receiveMessage = async (req, res) => {
     if (!nearby.length) return sendText(phone, "😕 Sorry, we are not delivering to your location yet.");
 
     return sendButtons(phone, "✅ We deliver in your area!", [
-      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } }
+      { type: "reply", reply: { id: "ORDER_FOOD", title: "🍽 Order Food" } },
+      {  type: "reply", reply: { id: "ORDER_GROCERY", title: "🍽 Order Grocery" } },
+      { type: "reply", reply: { id: "ORDER_MEDICINE", title: "🍽 Order Medicine" } }
     ]);
+  }
+
+  if(msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_GROCERY"){
+    user.chatState = "ASK_GROCERY_LIST";
+    await user.save();
+    await updateCache(user);
+
+
   }
 
   if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
@@ -619,4 +630,64 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
 
     return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
   }
+
+
+
+// Grocery ----------------------------------------------------------------------------------------------------------
+  if (
+  msg.type === "interactive" &&
+  msg.interactive.button_reply?.id === "ORDER_GROCERY"
+) {
+  user.chatState = "ASK_GROCERY_LIST";
+  await user.save();
+  await updateCache(user);
+
+  if (!user.location?.lat || !user.location?.lng) {
+    return sendText(phone, "📍 Please share location first. Type *hi* again.");
+  }
+
+  // Fetch grocery stores
+  const stores = await GroceryStore.find().populate("merchantId");
+
+  // Filter by distance
+  const nearbyStores = stores.filter((store) => {
+    const loc = store.merchantId?.address?.location;
+    if (!loc) return false;
+
+    const dist = distanceKM(
+      user.location.lat,
+      user.location.lng,
+      loc.lat,
+      loc.lng
+    );
+
+    return dist <= (store.deliveryRange || 5);
+  });
+
+  if (!nearbyStores.length) {
+    return sendText(phone, "😔 No grocery stores deliver to your location.");
+  }
+
+  // Prepare WhatsApp rows (title ≤ 24 chars)
+  const rows = nearbyStores.map((store) => {
+    let name = store.merchantId.storeName || "Grocery Store";
+    if (name.length > 24) name = name.slice(0, 21) + "...";
+
+    return {
+      id: `GROCERY_${store._id}`,
+      title: name,
+      description: store.merchantId.address.city || "Nearby Store",
+    };
+  });
+
+  return sendList(
+    phone,
+    "🛒 Select a grocery store near you:",
+    rows
+  );
+}
+
 };
+
+
+
