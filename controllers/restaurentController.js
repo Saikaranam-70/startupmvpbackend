@@ -1,14 +1,15 @@
 const Restaurant = require("../models/Restaurent");
 const redis = require("../config/redis");
-const XLSX = require("xlsx")
-const fs = require("fs")
-const cloudinary = require("../config/cloudinary")
+const XLSX = require("xlsx");
+const fs = require("fs");
+const cloudinary = require("../config/cloudinary");
 
 // Create Restaurant
 // ✅ Create Restaurant — Only One Restaurant per Merchant
 exports.createRestaurant = async (req, res) => {
   try {
-    const { merchantId, cuisines, menuItems, deliveryTime, minOrderValue } = req.body;
+    const { merchantId, cuisines, menuItems, deliveryTime, minOrderValue } =
+      req.body;
 
     if (!merchantId)
       return res.status(400).json({ message: "merchantId is required" });
@@ -44,7 +45,6 @@ exports.createRestaurant = async (req, res) => {
   }
 };
 
-
 // Get All Restaurants (cached)
 exports.getAllRestaurants = async (req, res) => {
   try {
@@ -52,7 +52,10 @@ exports.getAllRestaurants = async (req, res) => {
     const cached = await redis.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
-    const restaurants = await Restaurant.find().populate("merchantId", "storeName phone");
+    const restaurants = await Restaurant.find().populate(
+      "merchantId",
+      "storeName phone"
+    );
     await redis.set(cacheKey, JSON.stringify(restaurants), "EX", 120);
     res.json(restaurants);
   } catch (err) {
@@ -69,8 +72,14 @@ exports.getRestaurantByMerchant = async (req, res) => {
     const cached = await redis.get(cacheKey);
     if (cached) return res.json(JSON.parse(cached));
 
-    const restaurant = await Restaurant.findOne({ merchantId }).populate("merchantId", "storeName phone email");
-    if (!restaurant) return res.status(404).json({ message: "Restaurant not found for this merchant" });
+    const restaurant = await Restaurant.findOne({ merchantId }).populate(
+      "merchantId",
+      "storeName phone email"
+    );
+    if (!restaurant)
+      return res
+        .status(404)
+        .json({ message: "Restaurant not found for this merchant" });
 
     await redis.set(cacheKey, JSON.stringify(restaurant), "EX", 120);
     res.status(200).json(restaurant);
@@ -89,7 +98,8 @@ exports.getItemsByRestaurant = async (req, res) => {
     if (cached) return res.json(JSON.parse(cached));
 
     const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
+    if (!restaurant)
+      return res.status(404).json({ message: "Restaurant not found" });
 
     await redis.set(cacheKey, JSON.stringify(restaurant.menuItems), "EX", 120);
     res.status(200).json(restaurant.menuItems);
@@ -102,12 +112,18 @@ exports.getItemsByRestaurant = async (req, res) => {
 exports.addMenuItem = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const { name, price, category } = req.body;
+    const { name, price, category, type } = req.body;
+
+    if (!type || !["VEG", "NON-VEG"].includes(type))
+      return res
+        .status(400)
+        .json({ message: "Item type must be VEG or NON-VEG" });
 
     const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
+    if (!restaurant)
+      return res.status(404).json({ message: "Restaurant not found" });
 
-    restaurant.menuItems.push({ name, price, category });
+    restaurant.menuItems.push({ name, price, category, type });
     await restaurant.save();
 
     await redis.del("all_restaurants");
@@ -126,7 +142,8 @@ exports.updateMenuItem = async (req, res) => {
     const { name, price, category, isAvailable } = req.body;
 
     const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
+    if (!restaurant)
+      return res.status(404).json({ message: "Restaurant not found" });
 
     const item = restaurant.menuItems.id(itemId);
     if (!item) return res.status(404).json({ message: "Menu item not found" });
@@ -153,9 +170,12 @@ exports.deleteMenuItem = async (req, res) => {
     const { restaurantId, itemId } = req.params;
 
     const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
+    if (!restaurant)
+      return res.status(404).json({ message: "Restaurant not found" });
 
-    restaurant.menuItems = restaurant.menuItems.filter(item => item._id.toString() !== itemId);
+    restaurant.menuItems = restaurant.menuItems.filter(
+      (item) => item._id.toString() !== itemId
+    );
     await restaurant.save();
 
     await redis.del("all_restaurants");
@@ -173,7 +193,8 @@ exports.deleteRestaurant = async (req, res) => {
     const { restaurantId } = req.params;
 
     const restaurant = await Restaurant.findByIdAndDelete(restaurantId);
-    if (!restaurant) return res.status(404).json({ message: "Restaurant not found" });
+    if (!restaurant)
+      return res.status(404).json({ message: "Restaurant not found" });
 
     await redis.del("all_restaurants");
     await redis.del(`restaurant_merchant_${restaurant.merchantId}`);
@@ -191,8 +212,7 @@ exports.uploadMenuItemsExcel = async (req, res) => {
 
     console.log("Upload called for restaurant:", restaurantId);
 
-    if (!file)
-      return res.status(400).json({ message: "Excel file Required" });
+    if (!file) return res.status(400).json({ message: "Excel file Required" });
 
     const restaurant = await Restaurant.findById(restaurantId);
     if (!restaurant)
@@ -211,12 +231,19 @@ exports.uploadMenuItemsExcel = async (req, res) => {
     if (!data || data.length === 0)
       return res.status(400).json({ message: "Excel File is Empty" });
 
-    const newItems = data.map((row) => ({
-      name: row.name || row.Name,
-      price: row.price || row.Price,
-      category: row.category || row.Category || "General",
-      isAvailable: true,
-    }));
+    const newItems = data.map((row) => {
+      let type = (row.type || row.Type || "").toString().toUpperCase();
+
+      if (!["VEG", "NON-VEG"].includes(type)) type = "VEG"; // default value
+
+      return {
+        name: row.name || row.Name,
+        price: row.price || row.Price,
+        category: row.category || row.Category || "General",
+        type,
+        isAvailable: true,
+      };
+    });
 
     restaurant.menuItems.push(...newItems);
     await restaurant.save();

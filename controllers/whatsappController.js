@@ -251,7 +251,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBQNZCtnXDcGMJvDHRq0E1IcImZBQPOMojSrKenZAOjmFadbE8OlpvFoFi4UFOVCvTZBmAP0viE4Yh9vJecwZBVJMI6TjG4htWSfVsR2EqnocZA8vZAeNkQwDlQENGzk4qBkWxkZCHcIOpW7hNW20srzz337RWPc1ZCQRSNxZBdKdE68dmq3jCcCgghfRL82yJu9C6n3kPpZBF6F9xyIlBQNyOzti8r2ZBvPkj5rKuCPQB7byqWM7rlRw9F2kZAXFyrpqmRJa0Yo9lJ3uHCJ6E4`,
+  Authorization: `Bearer EAATRMkskE2oBQBnpvl7drMRMUgL9eppvZAZB5obHxSroLuaVN1JEi9rQDAonSxC93o7aJQ2C71QnC5USpZActKYULiwRT9vWvvuMCQ22oxjdrMiUUFYS6Dfr6oYAoZAdRM4Oe8Em0qtP80UFIWZBwDnS09lAK6J1OZCT944XAZAPsfbUNvLmU0MBpZBZAZCIBueuR3bTH0yPyZCLqCOafCpHxo40O2RHu8P6CCSg4haA4clmXfZCYCjkZCxCBGhmU8MyZC4WXk1ieibQAMZCYZBNRsm5belihnMj`,
   "Content-Type": "application/json",
 };
 
@@ -449,11 +449,38 @@ exports.receiveMessage = async (req, res) => {
   }
 
   if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_FOOD") {
-    user.chatState = "ASK_ITEM";
+    user.chatState = "ASK_TYPE";
     await user.save();
     await updateCache(user);
-    return sendText(phone, "Tell me what you want.\nExample: *biryani under 150*");
+
+    return sendButtons(phone, "What would you like to eat ?", [
+      {type: "reply", reply: {id: "TYPE_VEG", title: "🥦 VEG"}},
+      { type: "reply", reply: { id: "TYPE_NONVEG", title: "🍗 NON-VEG" } }
+    ])
   }
+
+  if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("TYPE_")) {
+
+    const foodType = msg.interactive.button_reply.id === "TYPE_VEG" ? "VEG" : "NON-VEG";
+    user.tempType = foodType;
+    user.chatState = "ASK_CATEGORY";
+    await user.save();
+    await updateCache(user);
+
+    // Extract unique categories for selected type
+    const categories = await Restaurant.aggregate([
+      { $unwind: "$menuItems" },
+      { $match: { "menuItems.type": foodType } },
+      { $group: { _id: "$menuItems.category" } }
+    ]);
+
+    const rows = categories.map(c => ({
+      id: `CAT_${c._id}`,
+      title: c._id
+    }));
+
+    return sendList(phone, `Choose a category (${foodType})`, rows);
+}
 
   if (user.chatState === "ASK_ITEM" && msg.type === "text") {
     const parsed = parseFood(msg.text.body);
