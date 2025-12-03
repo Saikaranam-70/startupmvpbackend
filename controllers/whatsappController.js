@@ -621,23 +621,49 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
     return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
   }
 
-  if (msg.type === "interactive" && msg.interactive.list_reply) {
-    const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
-    const restaurant = await Restaurant.findById(restId).populate("merchantId");
-    const item = restaurant.menuItems.id(itemId);
-    const total = item.price + 29;
+  // if (msg.type === "interactive" && msg.interactive.list_reply) {
+  //   const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
+  //   const restaurant = await Restaurant.findById(restId).populate("merchantId");
+  //   const item = restaurant.menuItems.id(itemId);
+  //   const total = item.price + 29;
 
-    user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-    user.markModified("tempOrder");
-    user.chatState = "ASK_PAYMENT";
-    await user.save();
-    await updateCache(user);
+  //   user.tempOrder = { restId, itemName: item.name, price: item.price, total };
+  //   user.markModified("tempOrder");
+  //   user.chatState = "ASK_PAYMENT";
+  //   await user.save();
+  //   await updateCache(user);
 
-    return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
+  //   return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
+  //     { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
+  //     { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
+  //   ]);
+  // }
+  // ---------------- FOOD ITEM SELECTION ----------------
+if (
+  msg.type === "interactive" &&
+  msg.interactive.list_reply?.id?.startsWith("ITEM_")
+) {
+  const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
+  const restaurant = await Restaurant.findById(restId).populate("merchantId");
+  const item = restaurant.menuItems.id(itemId);
+  const total = item.price + 29;
+
+  user.tempOrder = { restId, itemName: item.name, price: item.price, total };
+  user.markModified("tempOrder");
+  user.chatState = "ASK_PAYMENT";
+  await user.save();
+  await updateCache(user);
+
+  return sendButtons(
+    phone,
+    `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`,
+    [
       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
       { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
-    ]);
-  }
+    ]
+  );
+}
+
 
   if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
     const sel = user.tempOrder;
@@ -680,50 +706,55 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
 
 
 // Grocery ----------------------------------------------------------------------------------------------------------
-  if (
+ // ---------------- GROCERY STORE SELECTION ----------------
+if (
   msg.type === "interactive" &&
   msg.interactive.list_reply?.id?.startsWith("GROCERY_")
 ) {
   const storeId = msg.interactive.list_reply.id.replace("GROCERY_", "");
 
-  const store = await GroceryStore.findById(storeId);
+  // IMPORTANT: populate merchantId
+  const store = await GroceryStore.findById(storeId).populate("merchantId");
   if (!store) return sendText(phone, "⚠ Store not found.");
 
   user.chatState = "GROCERY_SEARCH";
   user.tempGroceryStore = storeId;
-  user.cart = []; // initialize empty cart
+  user.cart = []; 
   await user.save();
   await updateCache(user);
 
   return sendText(
     phone,
-    `🛒 *${store.merchantId.storeName}*\n\nType the grocery item you want:\n\nExamples:\n➡ *milk*\n➡ *sugar 1kg*\n➡ *apple*\n➡ *rice 5kg*\n\nI'll suggest items automatically.`
+    `🛒 *${store.merchantId.storeName}*\n\n` +
+      `Type the grocery item you want:\n\n` +
+      `Examples:\n➡ *milk*\n➡ *sugar 1kg*\n➡ *apple*\n➡ *rice 5kg*\n\n` +
+      `I'll suggest items automatically.`
   );
 }
 
+// ---------------- GROCERY SEARCH ----------------
 if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
   const query = msg.text.body.toLowerCase();
   const store = await GroceryStore.findById(user.tempGroceryStore);
 
   const matches = store.items
-    .filter((it) =>
-      it.name.toLowerCase().includes(query)
-    )
+    .filter((it) => it.name.toLowerCase().includes(query))
     .slice(0, 10);
 
   if (!matches.length) {
     return sendText(phone, "❌ No items found. Try another name.");
   }
 
-  // Prepare list rows
   const rows = matches.map((it) => ({
     id: `GITEM_${it._id}`,
-    title: it.name.slice(0, 24),
-    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`
+    title: it.name.substring(0, 24),
+    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`,
   }));
 
   return sendList(phone, "🛍 Select an item:", rows);
 }
+
+// ---------------- SELECT GROCERY ITEM ----------------
 if (
   msg.type === "interactive" &&
   msg.interactive.list_reply?.id?.startsWith("GITEM_")
@@ -732,7 +763,7 @@ if (
   const store = await GroceryStore.findById(user.tempGroceryStore);
   const item = store.items.id(itemId);
 
-  if (!item) return sendText(phone, "Item unavailable.");
+  if (!item) return sendText(phone, "❌ Item unavailable.");
 
   user.chatState = "GROCERY_QUANTITY";
   user.tempGroceryItem = {
@@ -740,21 +771,24 @@ if (
     name: item.name,
     price: item.price,
     unit: item.unit,
-    qty: 1
+    qty: 1,
   };
   await user.save();
   await updateCache(user);
 
   return sendButtons(
     phone,
-    `🛒 *${item.name}*\nPrice: ₹${item.price} (${item.unit})\n\nQuantity: *1*\n\nAdjust quantity:`,
+    `🛒 *${item.name}*\nPrice: ₹${item.price} (${item.unit})\n\n` +
+      `Quantity: *1*\n\nAdjust quantity:`,
     [
       { type: "reply", reply: { id: "Q_MINUS", title: "➖ Decrease" } },
       { type: "reply", reply: { id: "Q_PLUS", title: "➕ Increase" } },
-      { type: "reply", reply: { id: "Q_DONE", title: "✔ Confirm" } }
+      { type: "reply", reply: { id: "Q_DONE", title: "✔ Confirm" } },
     ]
   );
 }
+
+// ---------------- QUANTITY CHANGE ----------------
 if (
   msg.type === "interactive" &&
   ["Q_PLUS", "Q_MINUS", "Q_DONE"].includes(msg.interactive.button_reply?.id)
@@ -770,9 +804,7 @@ if (
   await user.save();
   await updateCache(user);
 
-  // If user finished selecting qty
   if (action === "Q_DONE") {
-    // Add to cart
     user.cart = [...(user.cart || []), temp];
     user.tempGroceryItem = null;
     user.chatState = "GROCERY_ADD_MORE";
@@ -781,25 +813,28 @@ if (
 
     return sendButtons(
       phone,
-      `🛒 Added to cart:\n${temp.name} x ${temp.qty} (${temp.unit})\nTotal: ₹${temp.qty * temp.price}\n\nAdd more items?`,
+      `🛒 Added to cart:\n${temp.name} x ${temp.qty} (${temp.unit})\n` +
+        `Total: ₹${temp.qty * temp.price}\n\nAdd more items?`,
       [
         { type: "reply", reply: { id: "ADD_MORE", title: "➕ Add More" } },
-        { type: "reply", reply: { id: "CHECKOUT", title: "🧾 Checkout" } }
+        { type: "reply", reply: { id: "CHECKOUT", title: "🧾 Checkout" } },
       ]
     );
   }
 
-  // Update quantity view
   return sendButtons(
     phone,
-    `🛒 ${temp.name}\nPrice: ₹${temp.price} (${temp.unit})\n\nQuantity: *${temp.qty}*\n\nAdjust quantity:`,
+    `🛒 ${temp.name}\nPrice: ₹${temp.price} (${temp.unit})\n\n` +
+      `Quantity: *${temp.qty}*\n\nAdjust quantity:`,
     [
       { type: "reply", reply: { id: "Q_MINUS", title: "➖ Decrease" } },
       { type: "reply", reply: { id: "Q_PLUS", title: "➕ Increase" } },
-      { type: "reply", reply: { id: "Q_DONE", title: "✔ Confirm" } }
+      { type: "reply", reply: { id: "Q_DONE", title: "✔ Confirm" } },
     ]
   );
 }
+
+// ---------------- ADD MORE ITEMS ----------------
 if (
   msg.type === "interactive" &&
   msg.interactive.button_reply?.id === "ADD_MORE"
@@ -810,6 +845,8 @@ if (
 
   return sendText(phone, "Type another grocery item name:");
 }
+
+// ---------------- CHECKOUT ----------------
 if (
   msg.type === "interactive" &&
   msg.interactive.button_reply?.id === "CHECKOUT"
@@ -833,15 +870,12 @@ if (
   await user.save();
   await updateCache(user);
 
-  return sendButtons(
-    phone,
-    summary + "\n\nChoose payment:",
-    [
-      { type: "reply", reply: { id: "G_COD", title: "💵 Cash" } },
-      { type: "reply", reply: { id: "G_UPI", title: "📲 UPI" } }
-    ]
-  );
+  return sendButtons(phone, summary + "\n\nChoose payment:", [
+    { type: "reply", reply: { id: "G_COD", title: "💵 Cash" } },
+    { type: "reply", reply: { id: "G_UPI", title: "📲 UPI" } },
+  ]);
 }
+
 
 };
 
