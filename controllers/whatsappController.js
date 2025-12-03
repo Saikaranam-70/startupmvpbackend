@@ -734,25 +734,40 @@ if (
 
 // ---------------- GROCERY SEARCH ----------------
 if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
+  if (!user.tempGroceryStore) {
+    user.chatState = "ASK_GROCERY_LIST";
+    await user.save();
+    await updateCache(user);
+    return sendText(phone, "⚠ Session expired. Please select the grocery store again.");
+  }
+
   const query = msg.text.body.toLowerCase();
   const store = await GroceryStore.findById(user.tempGroceryStore);
+  if (!store) {
+    user.chatState = "ASK_GROCERY_LIST";
+    await user.save();
+    await updateCache(user);
+    return sendText(phone, "⚠ Store not found. Please choose again.");
+  }
 
+  // NOW PERFORM MATCHING
   const matches = store.items
-    .filter((it) => it.name.toLowerCase().includes(query))
+    .filter(it => it.name.toLowerCase().includes(query))
     .slice(0, 10);
 
   if (!matches.length) {
     return sendText(phone, "❌ No items found. Try another name.");
   }
 
-  const rows = matches.map((it) => ({
+  const rows = matches.map(it => ({
     id: `GITEM_${it._id}`,
     title: it.name.substring(0, 24),
-    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`,
+    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`
   }));
 
   return sendList(phone, "🛍 Select an item:", rows);
 }
+
 
 // ---------------- SELECT GROCERY ITEM ----------------
 if (
@@ -760,7 +775,21 @@ if (
   msg.interactive.list_reply?.id?.startsWith("GITEM_")
 ) {
   const itemId = msg.interactive.list_reply.id.replace("GITEM_", "");
-  const store = await GroceryStore.findById(user.tempGroceryStore);
+  if (!user.tempGroceryStore) {
+  user.chatState = "ASK_GROCERY_LIST";
+  await user.save();
+  await updateCache(user);
+  return sendText(phone, "⚠ Session expired. Please select the store again.");
+}
+
+const store = await GroceryStore.findById(user.tempGroceryStore);
+if (!store) {
+  user.chatState = "ASK_GROCERY_LIST";
+  await user.save();
+  await updateCache(user);
+  return sendText(phone, "⚠ Store not found.");
+}
+
   const item = store.items.id(itemId);
 
   if (!item) return sendText(phone, "❌ Item unavailable.");
