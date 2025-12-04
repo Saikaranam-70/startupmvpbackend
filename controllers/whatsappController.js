@@ -8,7 +8,7 @@ const redis = require("../config/redis");
 const NodeCache = require("node-cache");
 const GroceryStore = require("../models/GroceryStore");
 const MedicineOrder = require("../models/MedicineOrder");
-const Merchant = require("../models/Merchent"); // you also use Merchant but not imported
+const Merchant = require("../models/Merchent"); 
 const localCache = new NodeCache({ stdTTL: 60 });
 require("dotenv").config();
 
@@ -731,8 +731,8 @@ if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_ME
     phone,
     "💊 How would you like to order medicine?",
     [
-      { type: "reply", reply: { id: "MED_UPLOAD", title: "📸 Upload Prescription" } },
-      { type: "reply", reply: { id: "MED_TEXT", title: "✍️ Type Medicine Names" } },
+      { type: "reply", reply: { id: "MED_UPLOAD", title: "📸Upload Prescription" } },
+      { type: "reply", reply: { id: "MED_TEXT", title: "✍️Type Medicine Names" } },
     ]
   );
 }
