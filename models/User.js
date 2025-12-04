@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema(
         message: (props) => `${props.value} is not a valid phone number!`,
       },
       required: true,
-      unique: true
+      unique: true,
     },
 
     address: { type: String },
@@ -23,32 +23,27 @@ const userSchema = new mongoose.Schema(
 
     chatState: { type: String, default: null },
 
-    // ⭐ Store temporarily selected VEG / NON-VEG
+    /**
+     * ------------------ FOOD ORDER TEMP DATA ------------------
+     */
     tempType: {
       type: String,
       enum: ["VEG", "NON-VEG", null],
       default: null,
     },
 
-    // ⭐ Store temporarily selected category
-    tempCategory: {
-      type: String,
-      default: null,
-    },
+    tempCategory: { type: String, default: null },
 
-    // ⭐ Store budget range (min, max)
     tempBudget: {
       min: Number,
       max: Number,
     },
 
-    // ⭐ Store item + budget search text
     tempSearch: {
       item: String,
       budget: Number,
     },
 
-    // ⭐ Food temp order
     tempOrder: {
       restId: String,
       itemName: String,
@@ -56,14 +51,15 @@ const userSchema = new mongoose.Schema(
       total: Number,
     },
 
-    // ⭐ Grocery Store Selected
+    /**
+     * ------------------ GROCERY TEMP DATA ------------------
+     */
     tempGroceryStore: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "GroceryStore",
       default: null,
     },
 
-    // ⭐ Grocery Item temporarily selected before qty confirm
     tempGroceryItem: {
       itemId: String,
       name: String,
@@ -72,7 +68,6 @@ const userSchema = new mongoose.Schema(
       qty: Number,
     },
 
-    // ⭐ Grocery Cart stored until checkout
     cart: [
       {
         itemId: String,
@@ -80,12 +75,38 @@ const userSchema = new mongoose.Schema(
         price: Number,
         unit: String,
         qty: Number,
-      }
+      },
     ],
+
+    /**
+     * ------------------ MEDICINE TEMP DATA ------------------
+     */
+    tempPrescription: {
+      type: String, // Cloudinary URL
+      default: null,
+    },
+
+    tempMedicinesText: {
+      type: String, // typed medicine list
+      default: "",
+    },
+
+    tempMedicineOrderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MedicineOrder",
+      default: null,
+    },
+
+    tempPaymentMethod: {
+      type: String,
+      enum: ["COD", "UPI", null],
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
+// Index for speed
 userSchema.index({ phone: 1 });
 
 module.exports = mongoose.model("User", userSchema);

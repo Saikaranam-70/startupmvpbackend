@@ -809,23 +809,36 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("OF
 
 // Image received when user was asked to upload prescription
 if (user.chatState === "MED_WAIT_IMAGE" && msg.type === "image") {
-
   const mediaId = msg.image.id;
-  const mediaUrl = await getMediaUrl(mediaId);
 
-  if (!mediaUrl) return sendText(phone, "⚠ Could not read the image. Please upload again.");
+  // 1️⃣ Get temporary media download URL from WhatsApp
+  const tempUrl = await getWhatsAppMediaUrl(mediaId);
+  if (!tempUrl) {
+    return sendText(phone, "❌ Could not download prescription. Try again.");
+  }
 
-  user.tempPrescription = mediaUrl;
+  // 2️⃣ Upload to Cloudinary
+  const uploadToCloudinary = require("../utils/uploadToCloudinary");
+  const cloudUrl = await uploadToCloudinary(tempUrl);
+
+  if (!cloudUrl) {
+    return sendText(phone, "❌ Failed to save image. Try again.");
+  }
+
+  // 3️⃣ Save Cloudinary URL
+  user.tempPrescription = cloudUrl;
+  user.tempMedicinesText = "";
   user.tempMedicineOrderId = null;
-  user.tempMedicinesText = null;
   user.chatState = "MED_PROCESSING";
 
   await user.save();
   await updateCache(user);
 
+  // 4️⃣ Proceed to medicine order creation
   await processMedicineRequest(user, phone);
   return;
 }
+
 
 
 // Text received while user is typing medicine names
@@ -1093,7 +1106,7 @@ async function processMedicineRequest(user, phone) {
   let details = "";
 
   if (user.tempMedicinesText) {
-    details = `Items:\n${user.tempMedicinesText}`;
+    details = `Prescription Image:\n${user.tempPrescription}`;;
   } else if (user.tempPrescription) {
     // This should already be media URL fetched using getMediaUrl()
     details = `Prescription Image:\n${user.tempPrescription}`;
