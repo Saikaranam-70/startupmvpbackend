@@ -912,14 +912,14 @@ if (
 
   if (payment === "G_COD") {
     user.tempPaymentMethod = "COD";
-    user.chatState = "GROCERY_CREATE_ORDER";
-    await user.save();
-    await updateCache(user);
+    user.tempPaymentMethod = "COD";
+user.chatState = "GROCERY_CREATE_ORDER";
+await user.save();
+await updateCache(user);
 
-    return sendText(
-      phone,
-      "📦 *Cash on Delivery selected!*\nYour order is being placed..."
-    );
+// ⚡ Immediately process the order
+return await processGroceryOrder(user, phone);
+
   }
 
   if (payment === "G_UPI") {
@@ -1041,3 +1041,66 @@ if (user.chatState === "GROCERY_CREATE_ORDER") {
 
 
 
+async function processGroceryOrder(user, phone) {
+
+  const store = await GroceryStore.findById(user.tempGroceryStore).populate("merchantId");
+  if (!store) return sendText(phone, "⚠ Store not found.");
+
+  const agents = await Agent.find({ isOnline: true });
+
+  let best = null, bd = Infinity;
+  for (const a of agents) {
+    if (!a.currentLocation) continue;
+
+    const d = distanceKM(
+      a.currentLocation.lat,
+      a.currentLocation.lng,
+      user.location.lat,
+      user.location.lng
+    );
+
+    if (d < bd) { bd = d; best = a; }
+  }
+
+  if (!best) return sendText(phone, "⏳ No delivery agents available now.");
+
+  let total = 20;
+  const orderItems = [];
+
+  user.cart.forEach((it) => {
+    const amt = it.qty * it.price;
+    total += amt;
+    orderItems.push({ name: it.name, price: it.price, qty: it.qty });
+  });
+
+  const order = await Order.create({
+    customerId: user._id,
+    merchantId: store.merchantId._id,
+    items: orderItems,
+    totalAmount: total,
+    deliveryAddress: user.location,
+    paymentMethod: user.tempPaymentMethod || "COD",
+    agentId: best._id,
+    status: "ASSIGNED",
+    type: "GROCERY",
+  });
+
+  best.isOnline = false;
+  best.currentOrderId = order._id;
+  await best.save();
+
+  user.cart = [];
+  user.tempGroceryStore = null;
+  user.tempPaymentMethod = null;
+  user.chatState = "IDLE";
+  await user.save();
+  await updateCache(user);
+
+  return sendText(
+    phone,
+    `🛒 *Grocery Order Confirmed!*\n\n` +
+    `🛍 Store: ${store.merchantId.storeName}\n` +
+    `🚚 Agent: ${best.name}\n📞 ${best.phone}\n\n` +
+    `Your order is on the way!`
+  );
+}
