@@ -754,7 +754,7 @@ if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
   const matches = store.items
     .filter(it => it.name.toLowerCase().includes(query))
     .slice(0, 10);
-
+  console.log(store.items)
   if (!matches.length) {
     return sendText(phone, "❌ No items found. Try another name.");
   }
