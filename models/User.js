@@ -48,13 +48,40 @@ const userSchema = new mongoose.Schema(
       budget: Number,
     },
 
-    // ⭐ Store selected item for final order
+    // ⭐ Food temp order
     tempOrder: {
       restId: String,
       itemName: String,
       price: Number,
       total: Number,
-    }
+    },
+
+    // ⭐ Grocery Store Selected
+    tempGroceryStore: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GroceryStore",
+      default: null,
+    },
+
+    // ⭐ Grocery Item temporarily selected before qty confirm
+    tempGroceryItem: {
+      itemId: String,
+      name: String,
+      price: Number,
+      unit: String,
+      qty: Number,
+    },
+
+    // ⭐ Grocery Cart stored until checkout
+    cart: [
+      {
+        itemId: String,
+        name: String,
+        price: Number,
+        unit: String,
+        qty: Number,
+      }
+    ],
   },
   { timestamps: true }
 );

@@ -734,23 +734,26 @@ if (
 
 // ---------------- GROCERY SEARCH ----------------
 if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
+
+  // FIX 1 — Ensure store is always present
   if (!user.tempGroceryStore) {
-    user.chatState = "ASK_GROCERY_LIST";
-    await user.save();
-    await updateCache(user);
-    return sendText(phone, "⚠ Session expired. Please select the grocery store again.");
+    return sendText(phone, "⚠ Please select store again.");
   }
 
-  const query = msg.text.body.toLowerCase();
-  const store = await GroceryStore.findById(user.tempGroceryStore);
+  // FIX 2 — Always populate merchantId
+  const store = await GroceryStore
+    .findById(user.tempGroceryStore)
+    .populate("merchantId");
+
   if (!store) {
     user.chatState = "ASK_GROCERY_LIST";
     await user.save();
-    await updateCache(user);
+    updateCache(user);
     return sendText(phone, "⚠ Store not found. Please choose again.");
   }
 
-  // NOW PERFORM MATCHING
+  const query = msg.text.body.toLowerCase();
+
   const matches = store.items
     .filter(it => it.name.toLowerCase().includes(query))
     .slice(0, 10);
@@ -758,16 +761,7 @@ if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
   if (!matches.length) {
     return sendText(phone, "❌ No items found. Try another name.");
   }
-
-  const rows = matches.map(it => ({
-    id: `GITEM_${it._id}`,
-    title: it.name.substring(0, 24),
-    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`
-  }));
-
-  return sendList(phone, "🛍 Select an item:", rows);
 }
-
 
 // ---------------- SELECT GROCERY ITEM ----------------
 if (
