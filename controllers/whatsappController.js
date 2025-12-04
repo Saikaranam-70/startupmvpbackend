@@ -1198,15 +1198,16 @@ async function assignAgentAndCreateFinalOrder(medOrder, customer) {
   await sendText(best.phone, `📦 New delivery: Order ${medOrder._id}. Pickup from ${pharmacy.storeName}. Customer location sent to you.`);
 }
 
-async function getMediaUrl(mediaId) {
+async function getWhatsAppMediaUrl(mediaId) {
   try {
     const res = await axios.get(
       `https://graph.facebook.com/v22.0/${mediaId}`,
       { headers: AUTH }
     );
-    return res.data.url; // direct download URL
+    return res.data.url; // temporary download URL
   } catch (err) {
-    console.error("MEDIA FETCH ERROR:", err.response?.data || err);
+    console.error("WhatsApp Media URL Error:", err.response?.data || err);
     return null;
   }
 }
+
