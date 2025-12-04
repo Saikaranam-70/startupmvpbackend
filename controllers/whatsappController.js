@@ -1,241 +1,3 @@
-// const axios = require("axios");
-// const { findOrCreateUser } = require("./userController");
-// const User = require("../models/User");
-
-// const Restaurent = require("../models/Restaurent");
-// const Order = require("../models/Order");
-// require("dotenv").config();
-
-// function parseFoodQuery(text) {
-//   text = text.toLowerCase();
-
-//   const budgetMatch = text.match(/\d+/);
-//   const budget = budgetMatch ? Number(budgetMatch[0]) : null;
-
-//   const item = text
-//     .replace(/\d+/g, "")
-//     .replace(/under|below|max|within|budget|rupees|rs|₹/g, "")
-//     .trim()
-//     .split(" ")
-//     .slice(0, 2)
-//     .join(" ");
-
-//   return { item, budget };
-// }
-
-// const token = process.env.WHATSAPP_ACCESS_TOKEN;
-// const phone_number_id = process.env.WHATSAPP_PHONE_ID;
-// const verify_token = process.env.secret_key;
-
-// exports.verifyWebhook = (req, res) => {
-//   const mode = req.query["hub.mode"];
-//   const challenge = req.query["hub.challenge"];
-//   const tokenFromMeta = req.query["hub.verify_token"];
-
-//   if (mode === "subscribe" && tokenFromMeta === verify_token) {
-//     console.log("WEBHOOK VERIFIED ✅");
-//     return res.status(200).send(challenge);
-//   }
-//   return res.sendStatus(403);
-// };
-
-// exports.receiveMessage = async (req, res) => {
-//   try {
-//     const change = req.body?.entry?.[0]?.changes?.[0]?.value;
-//     const message = change?.messages?.[0];
-//     if (!message) return res.sendStatus(200);
-
-//     let from = message.from;
-//     const phone = `+91${from.slice(-10)}`;
-
-//     const user = await findOrCreateUser(phone);
-//     console.log("✅ User Identified:", user.phone);
-
-//     if (
-//       user.chatState === "WAITING_FOR_FOOD_DETAILS" &&
-//       message.type === "text"
-//     ) {
-//       const query = message.text.body.trim().toLowerCase();
-//       const parsed = parseFoodQuery(query);
-
-//       const userfind = await User.findOne({phone});
-//       if ( !parsed.item || !parsed.budget) {
-//         return sendText(
-//           from,
-//           "⚠️ I couldn't understand that. Please send like:\n\n`biryani under 300`"
-//         );
-//       }
-
-//       const itemName = parsed.item.toLowerCase();
-//       const budget = parsed.budget;
-
-//       const restaurant = await Restaurent.findOne({
-//         "menuItems.name": { $regex: itemName, $options: "i" },
-//       }).populate("merchantId");
-//       if (!restaurant) {
-//         return sendText(
-//           from,
-//           "❌ No restaurant found serving that item. Try another order."
-//         );
-//       }
-//       const item = restaurant.menuItems.find((x) =>
-//         x.name.toLowerCase().includes(itemName)
-//       );
-//       if (!item) return sendText(from, "Item unavailable currently.");
-//       if (item.price > budget) {
-//         return sendText(
-//           from,
-//           `⚠️ The item costs ₹${item.price}. Please increase your budget.`
-//         );
-//       }
-//       const order = await Order.create({
-//         customerId: userfind._id,
-//         merchantId: restaurant.merchantId._id,
-//         items: [
-//           {
-//             name: item.name,
-//             price: item.price,
-//             quantity: 1,
-//             total: item.price,
-//           },
-//         ],
-//         totalAmount: item.price,
-//         deliveryAddress: userfind.address,
-//       });
-//       userfind.chatState = null;
-//       await userfind.save()
-//       await order.save()
-
-//       return sendText(
-//         from,
-//         `✅ *Order Confirmed!*\n\n🍽 ${item.name}\n💰 ₹${item.price}\n🏪 ${restaurant.merchantId.storeName}\n\nYour food is on the way 🚀`
-//       );
-//     }
-
-//     if (message.type === "text" ) {
-//       const text = message.text.body.trim().toLowerCase();
-//       if (["hi", "hello", "menu"].includes(text)) {
-//         await sendMainMenu(from);
-//       } else {
-//         await sendText(from, "Type *menu* to see options.");
-//       }
-//     }
-
-//     if (message.type === "interactive" && message.interactive?.button_reply) {
-//       await handleAction(from, message.interactive.button_reply.id);
-//     }
-
-//     if (message.type === "interactive" && message.interactive?.list_reply) {
-//       await handleAction(from, message.interactive.list_reply.id);
-//     }
-
-//     return res.sendStatus(200);
-//   } catch (error) {
-//     console.error("Webhook Error:", error?.response?.data || error);
-//     return res.sendStatus(500);
-//   }
-// };
-
-// async function sendMainMenu(to) {
-//   to = formatForWhatsapp(to);
-//   return axios.post(
-//     `https://graph.facebook.com/v22.0/905586875961713/messages`,
-//     {
-//       messaging_product: "whatsapp",
-//       to,
-//       type: "interactive",
-//       interactive: {
-//         type: "button",
-//         body: { text: "Welcome 😊 What would you like to do?" },
-//         action: {
-//           buttons: [
-//             {
-//               type: "reply",
-//               reply: { id: "ORDER_FOOD", title: "🍽 Order Food" },
-//             },
-//             {
-//               type: "reply",
-//               reply: { id: "ORDER_GROCERY", title: "🛒 Order Groceries" },
-//             },
-//             {
-//               type: "reply",
-//               reply: { id: "ORDER_MEDICINE", title: "💊 Order Medicine" },
-//             },
-//           ],
-//         },
-//       },
-//     },
-//     {
-//       headers: {
-//         Authorization: `Bearer EAATRMkskE2oBP8m2WvvLV7HvQfVlUZCNdZA3cFkNvu6Bos8NxpoVxuNkF1bZAjZAimCVdCRbZAn06VP456f4ke1ZChSjJIXUr6L6m5235eAjQJpxZBznBGoZBAzfniyYzVNlcfHVotRQSvxhYWTCgcZCYZAiRQWH1TVZCwuS7Mm0go8p2LmojHfWwCc9VkKBUVN6hFkZCRzIx3zP0NQkHD6d59VZAZCm78Wfz6BKmZAuj6temESQFG8Y6u2Y7snhP4ZBAxp2eUBE0qeUOyY881ft9Ikq4MMhADTo`,
-//         "Content-Type": "application/json",
-//       },
-//     }
-//   );
-// }
-
-// async function handleAction(to, id) {
-//   let phone = `+91${to.slice(-10)}`;
-//   console.log(phone);
-//   const user = await User.findOne({ phone });
-
-//   switch (id) {
-//     case "ORDER_FOOD":
-//       user.chatState = "WAITING_FOR_FOOD_DETAILS";
-//       await user.save();
-//       return sendText(
-//         to,
-//         "🍽 Great! Please send *food name and budget*.\n\nExample:\n`biryani under 300`"
-//       );
-//     case "ORDER_GROCERY":
-//       return sendText(
-//         to,
-//         "🛒 You chose *Order Groceries*. What items do you need?"
-//       );
-//     case "ORDER_MEDICINE":
-//       return sendText(
-//         to,
-//         "💊 You chose *Order Medicine*. Upload prescription if required."
-//       );
-//     default:
-//       return sendText(to, "❓ I didn’t understand that. Type *menu*.");
-//   }
-// }
-
-// async function sendText(to, body) {
-//   to = formatForWhatsapp(to);
-//   return axios.post(
-//     `https://graph.facebook.com/v22.0/905586875961713/messages`,
-//     {
-//       messaging_product: "whatsapp",
-//       to,
-//       text: { body },
-//     },
-//     {
-//       headers: {
-//         Authorization: `Bearer EAATRMkskE2oBP8m2WvvLV7HvQfVlUZCNdZA3cFkNvu6Bos8NxpoVxuNkF1bZAjZAimCVdCRbZAn06VP456f4ke1ZChSjJIXUr6L6m5235eAjQJpxZBznBGoZBAzfniyYzVNlcfHVotRQSvxhYWTCgcZCYZAiRQWH1TVZCwuS7Mm0go8p2LmojHfWwCc9VkKBUVN6hFkZCRzIx3zP0NQkHD6d59VZAZCm78Wfz6BKmZAuj6temESQFG8Y6u2Y7snhP4ZBAxp2eUBE0qeUOyY881ft9Ikq4MMhADTo`,
-//         "Content-Type": "application/json",
-//       },
-//     }
-//   );
-// }
-
-// function formatForWhatsapp(phone) {
-//   return phone.replace(/^\+/, "");
-// }
-// controllers/whatsappController.js
-
-
-
-
-
-
-
-
-
-
-
-
 
 const axios = require("axios");
 const User = require("../models/User");
@@ -245,6 +7,8 @@ const Agent = require("../models/Agent");
 const redis = require("../config/redis");
 const NodeCache = require("node-cache");
 const GroceryStore = require("../models/GroceryStore");
+const MedicineOrder = require("../models/MedicineOrder");
+const Merchant = require("../models/Merchent"); // you also use Merchant but not imported
 const localCache = new NodeCache({ stdTTL: 60 });
 require("dotenv").config();
 
@@ -252,7 +16,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBQJLl4VCpkTZBPsgZB9OsZBjd84KhRGZAewGZAEDzbvuEYxMQ7f7TKKzd9ucDY1A6dmTMHLBQRerLNNaJSAIRvZCo9cjqY1h1fZBpZBWZBTWTjTz64GkF9W9PUyZBS7FFfdi7r4CcdoZBHGhW0BqEtslvcg6RM2XiZAgINUle1owqJau1VZAvjm8mdGTuhGoyKDIgjm537MtuH5ugPUvpECkgZADUYzf9iCUe2aA1YZCV4C7iyYZBnFZA55KrZCZCVyMvHBQOnS6JWYsYepPrnXjciV8`,
+  Authorization: `Bearer EAATRMkskE2oBQObkuHmXMo8ZBirlab6o30z0DEe419UnXVpXIxQCvxL9eAUAdtDU7N3fSXAZB4fZAZCiAFUuy4vjdkgnoscwnlbZC4ET701lJ0vSfk3ErcsU0Fp8PSvUcBSxBSe9k0s7jvnCFEaVktk84o8d5bM9U0rLs19gb9SsZABnciXX2fCjjEnxtIh1iO3w6irhAqqVzVrODZAteasvDItesjcIXLLQ7XUVMebv6g8Sif5MXQcO2FkwB7HCkv26towP2dMVSwhFbDZC7kmUFmdO`,
   "Content-Type": "application/json",
 };
 
@@ -951,6 +715,255 @@ if (
   await updateCache(user);
 }
 
+
+
+
+
+
+
+// ---------- 1) User clicked "Order Medicine" button ----------
+if (msg.type === "interactive" && msg.interactive.button_reply?.id === "ORDER_MEDICINE") {
+  user.chatState = "ASK_MEDICINE_INPUT_TYPE";
+  await user.save();
+  await updateCache(user);
+
+  return sendButtons(
+    phone,
+    "💊 How would you like to order medicine?",
+    [
+      { type: "reply", reply: { id: "MED_UPLOAD", title: "📸 Upload Prescription" } },
+      { type: "reply", reply: { id: "MED_TEXT", title: "✍️ Type Medicine Names" } },
+    ]
+  );
+}
+
+// ---------- 2) User chooses upload prescription ----------
+if (msg.type === "interactive" && msg.interactive.button_reply?.id === "MED_UPLOAD") {
+  user.chatState = "MED_WAIT_IMAGE";
+  await user.save();
+  await updateCache(user);
+  return sendText(phone, "📸 Please upload a clear photo of your prescription now.");
+}
+
+// ---------- 3) User chooses type medicines ----------
+if (msg.type === "interactive" && msg.interactive.button_reply?.id === "MED_TEXT") {
+  user.chatState = "MED_WAIT_TEXT";
+  await user.save();
+  await updateCache(user);
+  return sendText(phone, "💊 Please type the medicines, one per line. E.g.\nParacetamol 500mg 10 tablets\nCough syrup 100ml");
+}
+
+// ---------- 4) Shop Accept/Reject buttons (from notify) ----------
+if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("SHOP_ACCEPT_")) {
+  // format: SHOP_ACCEPT_<orderId>_<shopId>
+  const [, orderId, shopId] = msg.interactive.button_reply.id.split("_");
+  const order = await MedicineOrder.findById(orderId);
+  if (!order) return sendText(msg.from, "Order not found.");
+  // mark status to show shops are replying
+  order.status = "WAITING_OFFERS";
+  await order.save();
+  return sendText(msg.from, `✅ Accepted. Please reply with the total price for Order ${orderId} as a number, e.g. 350`);
+}
+
+if (msg.type === "interactive" && msg.interactive.button_reply?.id?.startsWith("SHOP_REJECT_")) {
+  const [, orderId, shopId] = msg.interactive.button_reply.id.split("_");
+  // optional: mark the shop as rejected; for now just acknowledge
+  return sendText(msg.from, "You rejected the medicine request.");
+}
+
+// ---------- 5) Customer choosing an offer from list (OFFER_...) ----------
+if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("OFFER_")) {
+  // id format: OFFER_<offerIndex>_<orderId>_<shopId>
+  // We will build offer ids as OFFER_<idx>_<orderId>_<shopId> when sending list
+  const parts = msg.interactive.list_reply.id.split("_");
+  // parts[0] = "OFFER", parts[1] = idx, parts[2] = orderId, parts[3] = shopId
+  const offerIdx = Number(parts[1]);
+  const orderId = parts[2];
+  const shopId = parts[3];
+
+  const order = await MedicineOrder.findById(orderId).populate("offers.pharmacyId");
+  if (!order) return sendText(phone, "Offer not found.");
+
+  const offer = order.offers[offerIdx];
+  if (!offer) return sendText(phone, "Offer not found.");
+
+  // set selected pharmacy and final price
+  order.selectedPharmacyId = offer.pharmacyId;
+  order.finalPrice = offer.price;
+  order.status = "AWAITING_USER_CONFIRMATION";
+  await order.save();
+
+  // notify pharmacy that user picked their offer
+  await sendText(offer.pharmacyPhone, `✅ Customer selected your price ₹${offer.price} for Order ${order._id}. Please prepare medicines.`);
+
+  // ask user to choose payment
+  user.chatState = "MED_AWAIT_PAYMENT_METHOD";
+  await user.save();
+  await updateCache(user);
+
+  return sendButtons(phone, `You selected ${offer.pharmacyName} · ₹${offer.price}\nChoose payment:`, [
+    { type: "reply", reply: { id: "MED_COD", title: "💵 Cash on Delivery" } },
+    { type: "reply", reply: { id: "MED_UPI", title: "📲 Pay via UPI" } },
+  ]);
+}
+
+// Image received when user was asked to upload prescription
+if (user.chatState === "MED_WAIT_IMAGE" && msg.type === "image") {
+  // WhatsApp gives an id — you may want to fetch actual media url via the WhatsApp media API later.
+  const mediaId = msg.image?.id || msg.image?.mime_type ? JSON.stringify(msg.image) : null;
+  user.tempMedicineOrderId = null; // reset any old
+  user.tempPrescription = mediaId;
+  user.chatState = "MED_PROCESSING";
+  user.medicinesText = "";
+  await user.save();
+  await updateCache(user);
+
+  // create order & notify pharmacies
+  await processMedicineRequest(user, phone);
+  return;
+}
+
+
+// Text received while user is typing medicine names
+if (user.chatState === "MED_WAIT_TEXT" && msg.type === "text") {
+  user.tempMedicineOrderId = null;
+  user.tempPrescription = null;
+  user.tempMedicinesText = msg.text.body;
+  user.chatState = "MED_PROCESSING";
+  await user.save();
+  await updateCache(user);
+
+  await processMedicineRequest(user, phone);
+  return;
+}
+
+
+
+// If this sender is a registered pharmacy and sending numeric price (or "PRICE 350"), we capture it
+if (msg.type === "text") {
+  const senderPhone = normalize(msg.from);
+
+  // try to find a pharmacy with this phone
+  const shop = await Merchant.findOne({ $or: [{ phone: senderPhone }, { "merchantId.phone": senderPhone }] });
+  if (shop && shop.businessType === "PHARMACY") {
+    const txt = (msg.text.body || "").trim();
+    const m = txt.match(/(\d+(\.\d+)?)/);
+    if (!m) {
+      // not a numeric message — ignore or ask clarification
+      return sendText(msg.from, "Please reply with the total price as a number. Example: 350");
+    }
+    const price = Number(m[1]);
+
+    // find active medicine order where this pharmacy is notified and order is WAITING_OFFERS or similar
+    const order = await MedicineOrder.findOne({
+      status: { $in: ["WAITING_OFFERS","OFFERS_RECEIVED","PENDING"] },
+      notifiedPharmacies: shop._id,
+      "offers.pharmacyId": { $ne: shop._id }
+    });
+
+    if (!order) {
+      return sendText(msg.from, "No pending medicine request found to submit price for.");
+    }
+
+    // push offer
+    order.offers = order.offers || [];
+    order.offers.push({
+      pharmacyId: shop._id,
+      pharmacyName: shop.storeName || shop.storeName,
+      pharmacyPhone: shop.phone,
+      price,
+    });
+    order.status = "OFFERS_RECEIVED";
+    await order.save();
+
+    // notify shop
+    await sendText(msg.from, `✅ Price received: ₹${price} for Order ${order._id}`);
+
+    // notify customer with current offers (build WhatsApp list)
+    const customer = await User.findById(order.customerId);
+    if (!customer) return;
+
+    const rows = (order.offers || []).map((o, idx) => ({
+      id: `OFFER_${idx}_${order._id}_${o.pharmacyId}`,
+      title: `₹${o.price} · ${o.pharmacyName}`,
+      description: `Tap to choose this offer`,
+    })).slice(0, 10);
+
+    // update customer state so next interactive list selection is expected
+    customer.chatState = "ASK_SELECT_MEDICINE_OFFER";
+    await customer.save();
+    await updateCache(customer);
+
+    await sendList(customer.phone, `💊 Offers received for your medicine request (Order ${order._id}):`, rows);
+    return;
+  }
+
+  // continue with your other text handlers (food/grocery etc.)
+}
+
+
+if (msg.type === "interactive" && msg.interactive.button_reply?.id === "MED_COD") {
+  // user selected COD after picking offer
+  if (!user.tempMedicineOrderId) return sendText(phone, "No active medicine order found.");
+  const medOrder = await MedicineOrder.findById(user.tempMedicineOrderId);
+  if (!medOrder) return sendText(phone, "Order not found.");
+
+  medOrder.paymentMethod = "COD";
+  medOrder.status = "CONFIRMED";
+  await medOrder.save();
+
+  // finalize: selectedPharmacyId should already be present (when user picked offer)
+  user.chatState = null;
+  await user.save();
+  await updateCache(user);
+
+  const customer = user;
+  await assignAgentAndCreateFinalOrder(medOrder, customer);
+  return;
+}
+
+if (msg.type === "interactive" && msg.interactive.button_reply?.id === "MED_UPI") {
+  if (!user.tempMedicineOrderId) return sendText(phone, "No active medicine order found.");
+  const medOrder = await MedicineOrder.findById(user.tempMedicineOrderId);
+  if (!medOrder) return sendText(phone, "Order not found.");
+
+  // send a simple UPI link (replace YOUR-UPI-ID)
+  const total = (medOrder.finalPrice || 0) + 20;
+  const upiLink = `upi://pay?pa=YOUR-UPI-ID@bank&pn=YourShop&am=${total}&cu=INR`;
+
+  medOrder.paymentMethod = "UPI";
+  medOrder.status = "AWAITING_USER_CONFIRMATION";
+  await medOrder.save();
+
+  await sendText(phone, `📲 Please pay ₹${total} using UPI:\n${upiLink}\n\nAfter payment reply with PAID`);
+  user.chatState = "MED_WAIT_UPI_PAID";
+  await user.save();
+  await updateCache(user);
+  return;
+}
+
+
+if (msg.type === "text" && user.chatState === "MED_WAIT_UPI_PAID" && msg.text.body.trim().toUpperCase() === "PAID") {
+  const medOrder = await MedicineOrder.findById(user.tempMedicineOrderId);
+  if (!medOrder) return sendText(phone, "Order not found.");
+  medOrder.status = "CONFIRMED";
+  await medOrder.save();
+
+  user.chatState = null;
+  await user.save();
+  await updateCache(user);
+
+  const customer = user;
+  await assignAgentAndCreateFinalOrder(medOrder, customer);
+  return sendText(phone, "✅ Payment noted. We are processing your order.");
+}
+
+
+
+
+
+
+
 };
 
 
@@ -1018,3 +1031,130 @@ async function processGroceryOrder(user, phone) {
     `Your order is on the way!`
   );
 }
+
+
+// Clean user typed medicine text
+function normalizeMedicineText(text) {
+  if (!text) return "";
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map(l => l.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+// limit number of shops to notify
+const MAX_PHARMACIES_TO_NOTIFY = 5;
+
+// small helper to find nearby pharmacies (returns array of Merchant docs)
+async function findNearbyPharmacies(userLocation, maxDistanceKm = 5) {
+  const merchants = await Merchant.find({ businessType: "PHARMACY", isActive: true }).lean();
+  const nearby = merchants
+    .map(m => {
+      const loc = m.address?.location || m.location;
+      if (!loc || !loc.lat || !loc.lng) return null;
+      const d = distanceKM(userLocation.lat, userLocation.lng, Number(loc.lat), Number(loc.lng));
+      return { m, d };
+    })
+    .filter(Boolean)
+    .filter(x => x.d <= maxDistanceKm)
+    .sort((a,b) => a.d - b.d)
+    .map(x => x.m);
+  return nearby;
+}
+
+async function processMedicineRequest(user, phone) {
+  // load user location
+  if (!user.location?.lat || !user.location?.lng) {
+    user.chatState = null;
+    await user.save();
+    await updateCache(user);
+    return sendText(phone, "📍 Please share your location first. Type hi to restart.");
+  }
+
+  // find nearby pharmacies
+  const nearby = await findNearbyPharmacies(user.location, 5);
+  if (!nearby.length) {
+    user.chatState = null;
+    await user.save();
+    await updateCache(user);
+    return sendText(phone, "😔 No medical shops nearby.");
+  }
+
+  const notifyShops = nearby.slice(0, MAX_PHARMACIES_TO_NOTIFY);
+
+  // create medicine order
+  const order = await MedicineOrder.create({
+    customerId: user._id,
+    medicinesText: user.tempMedicinesText || "",
+    prescriptionMediaId: user.tempPrescription || null,
+    notifiedPharmacies: notifyShops.map(s => s._id),
+    status: "WAITING_OFFERS",
+    offerExpiresAt: new Date(Date.now() + (5 * 60 * 1000)), // 5 minutes expiry
+    deliveryAddress: { lat: user.location.lat, lng: user.location.lng, text: user.address || "" }
+  });
+
+  // store order id in user for easy lookup
+  user.tempMedicineOrderId = order._id;
+  user.chatState = "WAITING_OFFERS";
+  await user.save();
+  await updateCache(user);
+
+  // notify all pharmacies with Accept/Reject buttons
+  for (const shop of notifyShops) {
+    const shopPhone = shop.phone;
+    const shopName = shop.storeName || shop.storeName || "Medical Shop";
+    const body = `🛑 New Medicine Request\nOrder ID: ${order._id}\nCustomer: ${user.phone}\n\n` +
+      (user.tempMedicinesText ? `Items:\n${user.tempMedicinesText}` : "Prescription attached.") +
+      `\n\nPress Accept to send price or Reject.`;
+
+    await sendButtons(
+      shopPhone,
+      body,
+      [
+        { type: "reply", reply: { id: `SHOP_ACCEPT_${order._id}_${shop._id}`, title: "Accept & Enter Price" } },
+        { type: "reply", reply: { id: `SHOP_REJECT_${order._id}_${shop._id}`, title: "Reject" } }
+      ]
+    );
+  }
+
+  await sendText(phone, "⏳ Request sent to nearby pharmacies. We'll notify you when offers arrive.");
+  return;
+}
+
+async function assignAgentAndCreateFinalOrder(medOrder, customer) {
+  // find online agents and choose nearest
+  const agents = await Agent.find({ isOnline: true });
+  let best = null, bd = Infinity;
+  for (const a of agents) {
+    if (!a.currentLocation) continue;
+    const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, customer.location.lat, customer.location.lng);
+    if (d < bd) { bd = d; best = a; }
+  }
+
+  if (!best) {
+    // no available agent — inform customer and keep status CONFIRMED
+    await sendText(customer.phone, `✅ Offer confirmed. We are finding a delivery agent and will update you shortly.`);
+    medOrder.status = "CONFIRMED";
+    await medOrder.save();
+    return;
+  }
+
+  // assign agent and finalize
+  medOrder.agentId = best._id;
+  medOrder.status = "ASSIGNED";
+  medOrder.finalPrice = medOrder.finalPrice || (medOrder.offers?.[0]?.price || 0);
+  await medOrder.save();
+
+  best.isOnline = false;
+  best.currentOrderId = medOrder._id;
+  await best.save();
+
+  // notify customer, pharmacy & agent
+  const pharmacy = await Merchant.findById(medOrder.selectedPharmacyId);
+  await sendText(customer.phone, `🎉 Order confirmed!\nPharmacy: ${pharmacy.storeName}\nAgent: ${best.name}\nPhone: ${best.phone}\nTotal: ₹${medOrder.finalPrice + 20}`);
+  await sendText(pharmacy.phone, `🟢 Customer confirmed order ${medOrder._id}. Agent ${best.name} (${best.phone}) assigned.`);
+  await sendText(best.phone, `📦 New delivery: Order ${medOrder._id}. Pickup from ${pharmacy.storeName}. Customer location sent to you.`);
+}
+
