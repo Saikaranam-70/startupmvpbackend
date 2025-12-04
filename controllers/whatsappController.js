@@ -621,48 +621,48 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
     return sendList(phone, `Items under ₹${parsed.budget}:`, rows);
   }
 
-  // if (msg.type === "interactive" && msg.interactive.list_reply) {
-  //   const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
-  //   const restaurant = await Restaurant.findById(restId).populate("merchantId");
-  //   const item = restaurant.menuItems.id(itemId);
-  //   const total = item.price + 29;
+  if (msg.type === "interactive" && msg.interactive.list_reply) {
+    const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
+    const restaurant = await Restaurant.findById(restId).populate("merchantId");
+    const item = restaurant.menuItems.id(itemId);
+    const total = item.price + 29;
 
-  //   user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-  //   user.markModified("tempOrder");
-  //   user.chatState = "ASK_PAYMENT";
-  //   await user.save();
-  //   await updateCache(user);
+    user.tempOrder = { restId, itemName: item.name, price: item.price, total };
+    user.markModified("tempOrder");
+    user.chatState = "ASK_PAYMENT";
+    await user.save();
+    await updateCache(user);
 
-  //   return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
-  //     { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
-  //     { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
-  //   ]);
-  // }
-  // ---------------- FOOD ITEM SELECTION ----------------
-if (
-  msg.type === "interactive" &&
-  msg.interactive.list_reply?.id?.startsWith("ITEM_")
-) {
-  const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
-  const restaurant = await Restaurant.findById(restId).populate("merchantId");
-  const item = restaurant.menuItems.id(itemId);
-  const total = item.price + 29;
-
-  user.tempOrder = { restId, itemName: item.name, price: item.price, total };
-  user.markModified("tempOrder");
-  user.chatState = "ASK_PAYMENT";
-  await user.save();
-  await updateCache(user);
-
-  return sendButtons(
-    phone,
-    `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`,
-    [
+    return sendButtons(phone, `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`, [
       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
       { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
-    ]
-  );
-}
+    ]);
+  }
+  // ---------------- FOOD ITEM SELECTION ----------------
+// if (
+//   msg.type === "interactive" &&
+//   msg.interactive.list_reply?.id?.startsWith("ITEM_")
+// ) {
+//   const [, restId, itemId] = msg.interactive.list_reply.id.split("_");
+//   const restaurant = await Restaurant.findById(restId).populate("merchantId");
+//   const item = restaurant.menuItems.id(itemId);
+//   const total = item.price + 29;
+
+//   user.tempOrder = { restId, itemName: item.name, price: item.price, total };
+//   user.markModified("tempOrder");
+//   user.chatState = "ASK_PAYMENT";
+//   await user.save();
+//   await updateCache(user);
+
+//   return sendButtons(
+//     phone,
+//     `🍽 ${item.name}\n💰 Total: ₹${total}\n\nChoose payment:`,
+//     [
+//       { type: "reply", reply: { id: "COD", title: "💵 Cash" } },
+//       { type: "reply", reply: { id: "UPI", title: "📲 UPI" } },
+//     ]
+//   );
+// }
 
 
   if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
@@ -949,92 +949,6 @@ if (
   user.chatState = "GROCERY_CREATE_ORDER";
   await user.save();
   await updateCache(user);
-}
-
-// ---------------- CREATE ORDER AFTER PAYMENT (COD or PAID) ----------------
-if (user.chatState === "GROCERY_CREATE_ORDER") {
-
-  if (!user.cart || !user.cart.length) {
-    return sendText(phone, "❌ Cart is empty.");
-  }
-
-  const store = await GroceryStore.findById(user.tempGroceryStore).populate("merchantId");
-  if (!store) {
-    return sendText(phone, "⚠ Store not found.");
-  }
-
-  // Assign nearest delivery agent
-  const agents = await Agent.find({ isOnline: true });
-
-  let best = null, bd = Infinity;
-  for (const a of agents) {
-    if (!a.currentLocation) continue;
-
-    const d = distanceKM(
-      a.currentLocation.lat,
-      a.currentLocation.lng,
-      user.location.lat,
-      user.location.lng
-    );
-
-    if (d < bd) { bd = d; best = a; }
-  }
-
-  if (!best) {
-    user.chatState = "IDLE";
-    await user.save();
-    await updateCache(user);
-    return sendText(phone, "⏳ No delivery agents available at the moment.");
-  }
-
-  // Calculate full total
-  let total = 20; // Delivery
-  const orderItems = [];
-
-  user.cart.forEach((it) => {
-    const amt = it.qty * it.price;
-    total += amt;
-
-    orderItems.push({
-      name: it.name,
-      price: it.price,
-      qty: it.qty
-    });
-  });
-
-  // Create grocery order
-  const order = await Order.create({
-    customerId: user._id,
-    merchantId: store.merchantId._id,
-    items: orderItems,
-    totalAmount: total,
-    deliveryAddress: user.location,
-    paymentMethod: user.tempPaymentMethod || "COD",
-    agentId: best._id,
-    status: "ASSIGNED",
-    type: "GROCERY"
-  });
-
-  // Mark agent busy
-  best.isOnline = false;
-  best.currentOrderId = order._id;
-  await best.save();
-
-  // Clear user cart
-  user.cart = [];
-  user.tempGroceryStore = null;
-  user.tempPaymentMethod = null;
-  user.chatState = "IDLE";
-  await user.save();
-  await updateCache(user);
-
-  return sendText(
-    phone,
-    `🛒 *Grocery Order Confirmed!*\n\n` +
-    `🛍 Store: ${store.merchantId.storeName}\n` +
-    `🚚 Agent: ${best.name}\n📞 ${best.phone}\n\n` +
-    `Your order is on the way!`
-  );
 }
 
 };
