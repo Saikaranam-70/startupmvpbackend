@@ -900,6 +900,7 @@ if (
   );
 }
 // ---------------- PAYMENT METHOD SELECTED ----------------
+// ---------------- PAYMENT METHOD SELECTED ----------------
 if (
   msg.type === "interactive" &&
   (
@@ -910,30 +911,130 @@ if (
   const payment = msg.interactive.button_reply.id;
 
   if (payment === "G_COD") {
-    user.chatState = "IDLE";
+    user.tempPaymentMethod = "COD";
+    user.chatState = "GROCERY_CREATE_ORDER";
     await user.save();
     await updateCache(user);
 
     return sendText(
       phone,
-      "✅ *Order Confirmed!*\n\nYou chose *Cash on Delivery*.\nYour order will be delivered soon! 🚚"
+      "📦 *Cash on Delivery selected!*\nYour order is being placed..."
     );
   }
 
   if (payment === "G_UPI") {
+    user.tempPaymentMethod = "UPI";
     user.chatState = "WAITING_UPI_PAYMENT";
     await user.save();
     await updateCache(user);
 
-    // Replace with your own UPI ID
-    const upiLink = `upi://pay?pa=YOUR-UPI-ID@bank&pn=Startup%20Grocery&am=${total + 20}&cu=INR`;
+    const total = user.cart.reduce((a, b) => a + b.qty * b.price, 0) + 20;
+
+    const upiLink = `upi://pay?pa=YOUR-UPI-ID@bank&pn=Startup%20Grocery&am=${total}&cu=INR`;
 
     return sendText(
       phone,
-      "📲 *UPI Payment*\n\nClick the link below to pay:\n\n" +
-      upiLink + "\n\nAfter payment, reply *PAID*."
+      "📲 *UPI Payment*\n\nClick to pay:\n" +
+      upiLink +
+      "\n\nAfter payment, reply: *PAID*"
     );
   }
+}
+// ---------------- FINAL GROCERY ORDER CREATION ----------------
+if (
+  msg.type === "text" &&
+  user.chatState === "WAITING_UPI_PAYMENT" &&
+  msg.text.body.trim().toUpperCase() === "PAID"
+) {
+  user.chatState = "GROCERY_CREATE_ORDER";
+  await user.save();
+  await updateCache(user);
+}
+
+// ---------------- CREATE ORDER AFTER PAYMENT (COD or PAID) ----------------
+if (user.chatState === "GROCERY_CREATE_ORDER") {
+
+  if (!user.cart || !user.cart.length) {
+    return sendText(phone, "❌ Cart is empty.");
+  }
+
+  const store = await GroceryStore.findById(user.tempGroceryStore).populate("merchantId");
+  if (!store) {
+    return sendText(phone, "⚠ Store not found.");
+  }
+
+  // Assign nearest delivery agent
+  const agents = await Agent.find({ isOnline: true });
+
+  let best = null, bd = Infinity;
+  for (const a of agents) {
+    if (!a.currentLocation) continue;
+
+    const d = distanceKM(
+      a.currentLocation.lat,
+      a.currentLocation.lng,
+      user.location.lat,
+      user.location.lng
+    );
+
+    if (d < bd) { bd = d; best = a; }
+  }
+
+  if (!best) {
+    user.chatState = "IDLE";
+    await user.save();
+    await updateCache(user);
+    return sendText(phone, "⏳ No delivery agents available at the moment.");
+  }
+
+  // Calculate full total
+  let total = 20; // Delivery
+  const orderItems = [];
+
+  user.cart.forEach((it) => {
+    const amt = it.qty * it.price;
+    total += amt;
+
+    orderItems.push({
+      name: it.name,
+      price: it.price,
+      qty: it.qty
+    });
+  });
+
+  // Create grocery order
+  const order = await Order.create({
+    customerId: user._id,
+    merchantId: store.merchantId._id,
+    items: orderItems,
+    totalAmount: total,
+    deliveryAddress: user.location,
+    paymentMethod: user.tempPaymentMethod || "COD",
+    agentId: best._id,
+    status: "ASSIGNED",
+    type: "GROCERY"
+  });
+
+  // Mark agent busy
+  best.isOnline = false;
+  best.currentOrderId = order._id;
+  await best.save();
+
+  // Clear user cart
+  user.cart = [];
+  user.tempGroceryStore = null;
+  user.tempPaymentMethod = null;
+  user.chatState = "IDLE";
+  await user.save();
+  await updateCache(user);
+
+  return sendText(
+    phone,
+    `🛒 *Grocery Order Confirmed!*\n\n` +
+    `🛍 Store: ${store.merchantId.storeName}\n` +
+    `🚚 Agent: ${best.name}\n📞 ${best.phone}\n\n` +
+    `Your order is on the way!`
+  );
 }
 
 };
