@@ -826,6 +826,8 @@ User message: "${rawQuery}"
   }
 
   // Save user and cache
+  user.chatState = "GROCERY_ADD_MORE";
+
   await user.save();
   await updateCache(user);
 
