@@ -731,16 +731,13 @@ if (
       `I'll suggest items automatically.`
   );
 }
-
 // ---------------- GROCERY SEARCH ----------------
 if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
 
-  // FIX 1 — Ensure store is always present
   if (!user.tempGroceryStore) {
     return sendText(phone, "⚠ Please select store again.");
   }
 
-  // FIX 2 — Always populate merchantId
   const store = await GroceryStore
     .findById(user.tempGroceryStore)
     .populate("merchantId");
@@ -757,10 +754,23 @@ if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
   const matches = store.items
     .filter(it => it.name.toLowerCase().includes(query))
     .slice(0, 10);
-    console.log(store.items)
+
   if (!matches.length) {
     return sendText(phone, "❌ No items found. Try another name.");
   }
+
+  // ⭐ YOU MISSED THIS PART
+  const rows = matches.map(it => ({
+    id: `GITEM_${it._id}`,
+    title: it.name.substring(0, 24),
+    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`
+  }));
+
+  return sendList(
+    phone,
+    "🛍 Select an item:",
+    rows
+  );
 }
 
 // ---------------- SELECT GROCERY ITEM ----------------
