@@ -732,25 +732,15 @@ if (
   );
 }
 // Clean the query: remove qty, units
-function cleanQuery(text) {
-  return text
-    .toLowerCase()
-    .replace(/[0-9]/g, "")
-    .replace(/kg|g|ml|liter|pack|piece|packet|sachet/gi, "")
-    .trim();
-}
-
-// ---------------- GROCERY SEARCH ----------------
+// ---------------- GROCERY SEARCH (AI‑powered text parsing) ----------------
 if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
 
   if (!user.tempGroceryStore) {
     return sendText(phone, "⚠ Please select store again.");
   }
 
-  const store = await GroceryStore
-    .findById(user.tempGroceryStore)
-    .populate("merchantId");
-
+  // Load the store (no need for merchantId here)
+  const store = await GroceryStore.findById(user.tempGroceryStore);
   if (!store) {
     user.chatState = "ASK_GROCERY_LIST";
     await user.save();
@@ -758,162 +748,103 @@ if (user.chatState === "GROCERY_SEARCH" && msg.type === "text") {
     return sendText(phone, "⚠ Store not found. Please choose again.");
   }
 
-  const rawQuery = msg.text.body.toLowerCase();
-  const query = cleanQuery(rawQuery);
+  const rawQuery = msg.text.body || "";
 
-  const matches = store.items
-    .filter(it => it.name.toLowerCase().includes(query))
-    .slice(0, 10);
+  // ----------- AI parsing ------------
+  const groq = require("../config/groqClient"); // adjust path if needed
 
-  if (!matches.length) {
-    return sendText(phone, "❌ No items found. Try another name.");
+  // Build a comma-separated list of available store item names
+  const itemNames = store.items.map(i => i.name).join(", ");
+
+  const prompt = `
+Extract grocery items, quantities, and units from the user message.
+Correct spelling mistakes, and match only items from this store list:
+${itemNames}
+
+Return JSON only, in this exact format:
+[
+  { "item": "ItemName", "qty": number, "unit": "unitName" }
+]
+
+User message: "${rawQuery}"
+`;
+
+  let parsedItems;
+  try {
+    const aiRes = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile", // or your chosen model
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const json = aiRes.choices[0].message.content.trim();
+    parsedItems = JSON.parse(json);
+  } catch (err) {
+    console.log("AI parse error:", err);
+    return sendText(phone, "❌ I couldn't understand that. Please type again.");
   }
 
-  const rows = matches.map(it => ({
-    id: `GITEM_${it._id}`,
-    title: it.name.substring(0, 24),
-    description: `₹${it.price} • ${it.unit} • Stock: ${it.stock}`
-  }));
+  if (!Array.isArray(parsedItems) || parsedItems.length === 0) {
+    return sendText(phone, "❌ I couldn't find any items. Try again.");
+  }
 
-  return sendList(phone, "🛍 Select an item:", rows);
-}
+  // ----------- Match AI results with store items ------------
+  // Clear any previous temp item (not strictly needed, but keeps state clean)
+  user.tempGroceryItem = null;
 
+  // We'll add each parsed item to cart
+  for (const obj of parsedItems) {
+    const itemName = (obj.item || "").trim().toLowerCase();
+    if (!itemName) continue;
 
-// ---------------- SELECT GROCERY ITEM ----------------
-if (
-  msg.type === "interactive" &&
-  msg.interactive.list_reply?.id?.startsWith("GITEM_")
-) {
-  const itemId = msg.interactive.list_reply.id.replace("GITEM_", "");
-  if (!user.tempGroceryStore) {
-  user.chatState = "ASK_GROCERY_LIST";
-  await user.save();
-  await updateCache(user);
-  return sendText(phone, "⚠ Session expired. Please select the store again.");
-}
-
-const store = await GroceryStore.findById(user.tempGroceryStore);
-if (!store) {
-  user.chatState = "ASK_GROCERY_LIST";
-  await user.save();
-  await updateCache(user);
-  return sendText(phone, "⚠ Store not found.");
-}
-
-  const item = store.items.id(itemId);
-
-  if (!item) return sendText(phone, "❌ Item unavailable.");
-
-  user.chatState = "GROCERY_QUANTITY";
-  user.tempGroceryItem = {
-    itemId,
-    name: item.name,
-    price: item.price,
-    unit: item.unit,
-    qty: 1,
-  };
-  await user.save();
-  await updateCache(user);
-
-  return sendButtons(
-    phone,
-    `🛒 *${item.name}*\nPrice: ₹${item.price} (${item.unit})\n\n` +
-      `Quantity: *1*\n\nAdjust quantity:`,
-    [
-      { type: "reply", reply: { id: "Q_MINUS", title: "➖ Decrease" } },
-      { type: "reply", reply: { id: "Q_PLUS", title: "➕ Increase" } },
-      { type: "reply", reply: { id: "Q_DONE", title: "✔ Confirm" } },
-    ]
-  );
-}
-
-// ---------------- QUANTITY CHANGE ----------------
-if (
-  msg.type === "interactive" &&
-  ["Q_PLUS", "Q_MINUS", "Q_DONE"].includes(msg.interactive.button_reply?.id)
-) {
-  const action = msg.interactive.button_reply.id;
-  const temp = user.tempGroceryItem;
-
-  if (!temp) return sendText(phone, "No item selected.");
-
-  if (action === "Q_PLUS") temp.qty++;
-  if (action === "Q_MINUS" && temp.qty > 1) temp.qty--;
-
-  await user.save();
-  await updateCache(user);
-
-  if (action === "Q_DONE") {
-    user.cart = [...(user.cart || []), temp];
-    user.tempGroceryItem = null;
-    user.chatState = "GROCERY_ADD_MORE";
-    await user.save();
-    await updateCache(user);
-
-    return sendButtons(
-      phone,
-      `🛒 Added to cart:\n${temp.name} x ${temp.qty} (${temp.unit})\n` +
-        `Total: ₹${temp.qty * temp.price}\n\nAdd more items?`,
-      [
-        { type: "reply", reply: { id: "ADD_MORE", title: "➕ Add More" } },
-        { type: "reply", reply: { id: "CHECKOUT", title: "🧾 Checkout" } },
-      ]
+    // Exact or case-insensitive match on name
+    const match = store.items.find(
+      i => i.name.toLowerCase() === itemName
     );
+
+    if (!match) {
+      // If any item is not found, inform the user about that single item
+      return sendText(
+        phone,
+        `❌ Item *${obj.item}* is not available in this store.`
+      );
+    }
+
+    const qty = obj.qty && obj.qty > 0 ? obj.qty : 1;
+    const unit = obj.unit ? obj.unit : match.unit;
+
+    // Add or update in cart
+    if (!user.cart) user.cart = [];
+
+    // Check if already in cart: if yes, sum qty (optional; here we add new entry)
+    user.cart.push({
+      itemId: match._id,
+      name: match.name,
+      price: match.price,
+      unit: unit,
+      qty: qty,
+    });
   }
 
-  return sendButtons(
-    phone,
-    `🛒 ${temp.name}\nPrice: ₹${temp.price} (${temp.unit})\n\n` +
-      `Quantity: *${temp.qty}*\n\nAdjust quantity:`,
-    [
-      { type: "reply", reply: { id: "Q_MINUS", title: "➖ Decrease" } },
-      { type: "reply", reply: { id: "Q_PLUS", title: "➕ Increase" } },
-      { type: "reply", reply: { id: "Q_DONE", title: "✔ Confirm" } },
-    ]
-  );
-}
-
-// ---------------- ADD MORE ITEMS ----------------
-if (
-  msg.type === "interactive" &&
-  msg.interactive.button_reply?.id === "ADD_MORE"
-) {
-  user.chatState = "GROCERY_SEARCH";
+  // Save user and cache
   await user.save();
   await updateCache(user);
 
-  return sendText(phone, "Type another grocery item name:");
-}
-
-// ---------------- CHECKOUT ----------------
-if (
-  msg.type === "interactive" &&
-  msg.interactive.button_reply?.id === "CHECKOUT"
-) {
-  if (!user.cart || !user.cart.length) {
-    return sendText(phone, "🛒 Your cart is empty.");
-  }
-
-  let total = 0;
-  let summary = "🧾 *Your Cart:*\n\n";
-
-  user.cart.forEach((it, i) => {
-    const amt = it.price * it.qty;
-    total += amt;
-    summary += `${i + 1}. ${it.name} - ${it.qty} x ₹${it.price} = ₹${amt}\n`;
+  // ----------- Respond with summary & options ------------
+  let summary = "🛒 *Added to Cart*\n\n";
+  parsedItems.forEach(it => {
+    summary += `• ${it.item} x ${it.qty} (${it.unit})\n`;
   });
 
-  summary += `\nDelivery: ₹20\nTotal: ₹${total + 20}`;
-
-  user.chatState = "GROCERY_PAYMENT";
-  await user.save();
-  await updateCache(user);
-
-  return sendButtons(phone, summary + "\n\nChoose payment:", [
-    { type: "reply", reply: { id: "G_COD", title: "💵 Cash" } },
-    { type: "reply", reply: { id: "G_UPI", title: "📲 UPI" } },
-  ]);
+  return sendButtons(
+    phone,
+    summary + "\nDo you want to add more items?",
+    [
+      { type: "reply", reply: { id: "ADD_MORE", title: "➕ Add More" } },
+      { type: "reply", reply: { id: "CHECKOUT", title: "🧾 Checkout" } },
+    ]
+  );
 }
+
 
 
 };
