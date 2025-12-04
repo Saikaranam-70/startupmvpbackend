@@ -826,7 +826,7 @@ User message: "${rawQuery}"
   }
 
   // Save user and cache
-  user.chatState = "GROCERY_ADD_MORE";
+  // user.chatState = "GROCERY_ADD_MORE";
 
   await user.save();
   await updateCache(user);
@@ -846,7 +846,95 @@ User message: "${rawQuery}"
     ]
   );
 }
+// ---------------- ADD MORE ITEMS ----------------
+if (
+  msg.type === "interactive" &&
+  (
+    msg.interactive?.button_reply?.id === "ADD_MORE" ||
+    msg.interactive?.button_reply?.payload === "ADD_MORE" ||
+    msg.interactive?.list_reply?.id === "ADD_MORE"
+  )
+) {
+  user.chatState = "GROCERY_SEARCH";
+  await user.save();
+  await updateCache(user);
 
+  return sendText(phone, "Type another grocery item name:");
+}
+
+// ---------------- CHECKOUT ----------------
+if (
+  msg.type === "interactive" &&
+  (
+    msg.interactive?.button_reply?.id === "CHECKOUT" ||
+    msg.interactive?.button_reply?.payload === "CHECKOUT" ||
+    msg.interactive?.list_reply?.id === "CHECKOUT"
+  )
+) {
+  if (!user.cart || !user.cart.length) {
+    return sendText(phone, "🛒 Your cart is empty.");
+  }
+
+  let total = 0;
+  let summary = "🧾 *Your Cart:*\n\n";
+
+  user.cart.forEach((it, i) => {
+    const amt = it.price * it.qty;
+    total += amt;
+    summary += `${i + 1}. ${it.name} - ${it.qty} x ₹${it.price} = ₹${amt}\n`;
+  });
+
+  summary += `\n🚚 Delivery: ₹20\n💰 *Total Payable: ₹${total + 20}*`;
+
+  user.chatState = "GROCERY_PAYMENT";
+  await user.save();
+  await updateCache(user);
+
+  return sendButtons(
+    phone,
+    summary + "\n\nChoose a payment method:",
+    [
+      { type: "reply", reply: { id: "G_COD", title: "💵 Cash on Delivery" } },
+      { type: "reply", reply: { id: "G_UPI", title: "📲 Pay via UPI" } },
+    ]
+  );
+}
+// ---------------- PAYMENT METHOD SELECTED ----------------
+if (
+  msg.type === "interactive" &&
+  (
+    msg.interactive?.button_reply?.id === "G_COD" ||
+    msg.interactive?.button_reply?.id === "G_UPI"
+  )
+) {
+  const payment = msg.interactive.button_reply.id;
+
+  if (payment === "G_COD") {
+    user.chatState = "IDLE";
+    await user.save();
+    await updateCache(user);
+
+    return sendText(
+      phone,
+      "✅ *Order Confirmed!*\n\nYou chose *Cash on Delivery*.\nYour order will be delivered soon! 🚚"
+    );
+  }
+
+  if (payment === "G_UPI") {
+    user.chatState = "WAITING_UPI_PAYMENT";
+    await user.save();
+    await updateCache(user);
+
+    // Replace with your own UPI ID
+    const upiLink = `upi://pay?pa=YOUR-UPI-ID@bank&pn=Startup%20Grocery&am=${total + 20}&cu=INR`;
+
+    return sendText(
+      phone,
+      "📲 *UPI Payment*\n\nClick the link below to pay:\n\n" +
+      upiLink + "\n\nAfter payment, reply *PAID*."
+    );
+  }
+}
 
 };
 
