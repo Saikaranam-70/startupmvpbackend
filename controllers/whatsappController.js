@@ -809,16 +809,20 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("OF
 
 // Image received when user was asked to upload prescription
 if (user.chatState === "MED_WAIT_IMAGE" && msg.type === "image") {
-  // WhatsApp gives an id — you may want to fetch actual media url via the WhatsApp media API later.
-  const mediaId = msg.image?.id || msg.image?.mime_type ? JSON.stringify(msg.image) : null;
-  user.tempMedicineOrderId = null; // reset any old
-  user.tempPrescription = mediaId;
+
+  const mediaId = msg.image.id;
+  const mediaUrl = await getMediaUrl(mediaId);
+
+  if (!mediaUrl) return sendText(phone, "⚠ Could not read the image. Please upload again.");
+
+  user.tempPrescription = mediaUrl;
+  user.tempMedicineOrderId = null;
+  user.tempMedicinesText = null;
   user.chatState = "MED_PROCESSING";
-  user.medicinesText = "";
+
   await user.save();
   await updateCache(user);
 
-  // create order & notify pharmacies
   await processMedicineRequest(user, phone);
   return;
 }
@@ -1065,7 +1069,8 @@ async function findNearbyPharmacies(userLocation, maxDistanceKm = 5) {
 }
 
 async function processMedicineRequest(user, phone) {
-  // load user location
+
+  // ------------------ 1) Check location ------------------
   if (!user.location?.lat || !user.location?.lng) {
     user.chatState = null;
     await user.save();
@@ -1073,7 +1078,7 @@ async function processMedicineRequest(user, phone) {
     return sendText(phone, "📍 Please share your location first. Type hi to restart.");
   }
 
-  // find nearby pharmacies
+  // ------------------ 2) Find nearby pharmacies ------------------
   const nearby = await findNearbyPharmacies(user.location, 5);
   if (!nearby.length) {
     user.chatState = null;
@@ -1084,30 +1089,50 @@ async function processMedicineRequest(user, phone) {
 
   const notifyShops = nearby.slice(0, MAX_PHARMACIES_TO_NOTIFY);
 
-  // create medicine order
+  // ------------------ 3) Build display text ------------------
+  let details = "";
+
+  if (user.tempMedicinesText) {
+    details = `Items:\n${user.tempMedicinesText}`;
+  } else if (user.tempPrescription) {
+    // This should already be media URL fetched using getMediaUrl()
+    details = `Prescription Image:\n${user.tempPrescription}`;
+  } else {
+    details = "Request details unavailable.";
+  }
+
+  // ------------------ 4) Create medicine order ------------------
   const order = await MedicineOrder.create({
     customerId: user._id,
     medicinesText: user.tempMedicinesText || "",
-    prescriptionMediaId: user.tempPrescription || null,
+    prescriptionMediaId: user.tempPrescription || null, // URL stored here
     notifiedPharmacies: notifyShops.map(s => s._id),
     status: "WAITING_OFFERS",
-    offerExpiresAt: new Date(Date.now() + (5 * 60 * 1000)), // 5 minutes expiry
-    deliveryAddress: { lat: user.location.lat, lng: user.location.lng, text: user.address || "" }
+    offerExpiresAt: new Date(Date.now() + (5 * 60 * 1000)), // 5 min expiry
+    deliveryAddress: {
+      lat: user.location.lat,
+      lng: user.location.lng,
+      text: user.address || ""
+    }
   });
 
-  // store order id in user for easy lookup
+  // Save active order reference
   user.tempMedicineOrderId = order._id;
   user.chatState = "WAITING_OFFERS";
   await user.save();
   await updateCache(user);
 
-  // notify all pharmacies with Accept/Reject buttons
+  // ------------------ 5) Notify pharmacies ------------------
   for (const shop of notifyShops) {
     const shopPhone = shop.phone;
-    const shopName = shop.storeName || shop.storeName || "Medical Shop";
-    const body = `🛑 New Medicine Request\nOrder ID: ${order._id}\nCustomer: ${user.phone}\n\n` +
-      (user.tempMedicinesText ? `Items:\n${user.tempMedicinesText}` : "Prescription attached.") +
-      `\n\nPress Accept to send price or Reject.`;
+    const shopName = shop.storeName || "Medical Shop";
+
+    const body =
+      `🛑 New Medicine Request\n` +
+      `Order ID: ${order._id}\n` +
+      `Customer: ${user.phone}\n\n` +
+      `${details}\n\n` +                    // <—— now includes prescription URL
+      `Press Accept to send price or Reject.`;
 
     await sendButtons(
       shopPhone,
@@ -1119,9 +1144,11 @@ async function processMedicineRequest(user, phone) {
     );
   }
 
+  // ------------------ 6) Confirmation to customer ------------------
   await sendText(phone, "⏳ Request sent to nearby pharmacies. We'll notify you when offers arrive.");
   return;
 }
+
 
 async function assignAgentAndCreateFinalOrder(medOrder, customer) {
   // find online agents and choose nearest
@@ -1158,3 +1185,15 @@ async function assignAgentAndCreateFinalOrder(medOrder, customer) {
   await sendText(best.phone, `📦 New delivery: Order ${medOrder._id}. Pickup from ${pharmacy.storeName}. Customer location sent to you.`);
 }
 
+async function getMediaUrl(mediaId) {
+  try {
+    const res = await axios.get(
+      `https://graph.facebook.com/v22.0/${mediaId}`,
+      { headers: AUTH }
+    );
+    return res.data.url; // direct download URL
+  } catch (err) {
+    console.error("MEDIA FETCH ERROR:", err.response?.data || err);
+    return null;
+  }
+}
