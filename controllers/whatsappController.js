@@ -818,7 +818,7 @@ if (user.chatState === "MED_WAIT_IMAGE" && msg.type === "image") {
   }
 
   // 2️⃣ Upload to Cloudinary
-  const uploadToCloudinary = require("../utils/uploadToCloudinary");
+  const uploadToCloudinary = require("../config/uploadToCloudinary");
   const cloudUrl = await uploadToCloudinary(tempUrl);
 
   if (!cloudUrl) {
