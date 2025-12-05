@@ -833,33 +833,39 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("OF
 if (user.chatState === "MED_WAIT_IMAGE" && msg.type === "image") {
   const mediaId = msg.image.id;
 
-  // 1️⃣ Get temporary media download URL from WhatsApp
+  // ✅ 1. Get temporary WhatsApp media download URL
   const tempUrl = await getWhatsAppMediaUrl(mediaId);
   if (!tempUrl) {
     return sendText(phone, "❌ Could not download prescription. Try again.");
   }
 
-  // 2️⃣ Upload to Cloudinary
+  // ✅ 2. Upload to Cloudinary
   const uploadToCloudinary = require("../config/uploadToCloudinary");
-  const cloudUrl = await uploadToCloudinary(tempUrl);
+  const cloudinaryUrl = await uploadToCloudinary(tempUrl);
 
-  if (!cloudUrl) {
-    return sendText(phone, "❌ Failed to save image. Try again.");
+  if (!cloudinaryUrl) {
+    return sendText(phone, "❌ Failed to upload image. Try again.");
   }
 
-  // 3️⃣ Save Cloudinary URL
-  user.tempPrescription = cloudUrl;
-  user.tempMedicinesText = "";
+  // ✅ 3. STORE CLOUDINARY URL IN THIS FIELD ✅✅✅
+  user.tempMedicinePrescriptionImageUrl = cloudinaryUrl;
+
+  // ❌ REMOVE OLD VARIABLES
+  user.tempPrescription = null;
+  user.tempMedicinesText = null;
+
+  // ✅ 4. CONTINUE FLOW
   user.tempMedicineOrderId = null;
   user.chatState = "MED_PROCESSING";
 
   await user.save();
   await updateCache(user);
 
-  // 4️⃣ Proceed to medicine order creation
+  // ✅ 5. CONTINUE MEDICINE FLOW
   await processMedicineRequest(user, phone);
   return;
 }
+
 
 
 
@@ -1137,14 +1143,14 @@ async function processMedicineRequest(user, phone) {
   // ------------------ 3) Build display text ------------------
   let details = "";
 
-  if (user.tempMedicinesText) {
-    details = `Prescription Image:\n${user.tempPrescription}`;;
-  } else if (user.tempPrescription) {
-    // This should already be media URL fetched using getMediaUrl()
-    details = `Prescription Image:\n${user.tempPrescription}`;
-  } else {
-    details = "Request details unavailable.";
-  }
+if (user.tempMedicinePrescriptionImageUrl) {
+  details = `📸 Prescription Image:\n${user.tempMedicinePrescriptionImageUrl}`;
+} else if (user.tempMedicinesText) {
+  details = `💊 Medicines:\n${user.tempMedicinesText}`;
+} else {
+  details = "Request details unavailable.";
+}
+
 
   // ------------------ 4) Create medicine order ------------------
   const order = await MedicineOrder.create({
