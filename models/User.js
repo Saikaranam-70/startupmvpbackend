@@ -81,7 +81,7 @@ const userSchema = new mongoose.Schema(
     /**
      * ------------------ MEDICINE TEMP DATA ------------------
      */
-    tempPrescription: {
+    tempMedicinePrescriptionImageUrl: {
       type: String, // Cloudinary URL
       default: null,
     },
