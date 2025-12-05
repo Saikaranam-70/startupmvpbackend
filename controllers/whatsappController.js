@@ -471,6 +471,8 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
   );
 
   // ✅ Push order to all agents via PWA (Socket)
+  console.log("Nearby Agents :",nearbyAgents)
+  console.log("Order", order)
 await notifyNearbyAgentsPWA(order, nearbyAgents, "FOOD");
 
 
@@ -1257,9 +1259,14 @@ async function getWhatsAppMediaUrl(mediaId) {
 // }
 
 async function notifyNearbyAgentsPWA(order, nearbyAgents, type) {
+  console.log("🚀 Notifying agents:", nearbyAgents.length);
+console.log("🧠 Stored sockets:", global.agentSockets);
+
   for (const agent of nearbyAgents) {
     const socketId = global.agentSockets?.[agent._id.toString()];
     if (socketId) {
+      console.log("📤 Sending to:", agent._id.toString(), socketId);
+
       global.io.to(socketId).emit("new-order", {
         orderId: order._id,
         type,

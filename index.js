@@ -54,28 +54,31 @@ global.io = new Server(server, {
 });
 
 // ✅ ✅ AGENT SOCKET REGISTRY (VERY IMPORTANT)
-global.agentSockets = {}; // agentId -> socketId
+global.agentSockets = {}; // ✅ ADD THIS LINE AT TOP (GLOBAL STORE)
 
-// ✅ SOCKET CONNECTION HANDLER
 global.io.on("connection", (socket) => {
   console.log("✅ Agent connected via Socket:", socket.id);
 
-  // ✅ WHEN AGENT LOGS INTO PWA
+  // ✅ REGISTER AGENT SOCKET
   socket.on("agent-online", ({ agentId }) => {
     global.agentSockets[agentId] = socket.id;
-    console.log(`✅ Agent Registered: ${agentId} -> ${socket.id}`);
+    console.log("✅ Agent registered:", agentId, "Socket:", socket.id);
   });
 
-  // ✅ CLEANUP ON DISCONNECT
   socket.on("disconnect", () => {
-    for (const agentId in global.agentSockets) {
-      if (global.agentSockets[agentId] === socket.id) {
-        delete global.agentSockets[agentId];
-        console.log(`❌ Agent Disconnected: ${agentId}`);
+    console.log("❌ Agent disconnected:", socket.id);
+
+    // ✅ REMOVE AGENT FROM MAP ON DISCONNECT
+    for (const id in global.agentSockets) {
+      if (global.agentSockets[id] === socket.id) {
+        delete global.agentSockets[id];
+        console.log("🧹 Removed agent socket:", id);
+        break;
       }
     }
   });
 });
+
 
 // ✅ MONGODB CONNECTION
 mongoose.connect(process.env.MONGO_URI)
