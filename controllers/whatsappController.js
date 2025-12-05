@@ -16,7 +16,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBQObkuHmXMo8ZBirlab6o30z0DEe419UnXVpXIxQCvxL9eAUAdtDU7N3fSXAZB4fZAZCiAFUuy4vjdkgnoscwnlbZC4ET701lJ0vSfk3ErcsU0Fp8PSvUcBSxBSe9k0s7jvnCFEaVktk84o8d5bM9U0rLs19gb9SsZABnciXX2fCjjEnxtIh1iO3w6irhAqqVzVrODZAteasvDItesjcIXLLQ7XUVMebv6g8Sif5MXQcO2FkwB7HCkv26towP2dMVSwhFbDZC7kmUFmdO`,
+  Authorization: `Bearer EAATRMkskE2oBQMGcCJ25W0iaNWDbswGNPFGko2hn379cd59jx51ZAt034ZCy5v5dLOjF8L311CR0cyM6ri8tVOT6KVdOhZCpZBN30qQ08DdAzaNpkectUQLJ5ZCuo2lltH6L8R0KVBhqDSs9FO4uoH9qwOo3NTpa8OZBltMSktrFKsVvdipcZARj1yphRRATwupBzH7YxbTrXb3VG0oaGrM46nMKGtHUjoWQPfM88ErzZAwS0SRn4AZA0gThJPM3qor0B9ZC1LBMl90v1HqCyskmDIGkkM`,
   "Content-Type": "application/json",
 };
 
@@ -430,42 +430,64 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
 
 
   if (msg.type === "interactive" && ["COD", "UPI"].includes(msg.interactive.button_reply?.id)) {
-    const sel = user.tempOrder;
-    const agents = await Agent.find({ isOnline: true });
+  const sel = user.tempOrder;
 
-    let best = null, bd = Infinity;
-    for (const a of agents) {
-      if (!a.currentLocation) continue;
-      const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, user.location.lat, user.location.lng);
-      if (d < bd) { bd = d; best = a; }
-    }
+  // ✅ Find all online & free agents
+  const agents = await Agent.find({ isOnline: true, isBusy: false });
 
-    if (!best) return sendText(phone, "⏳ No available delivery agents right now.");
+  // ✅ Filter only NEAREST agents (within 5 KM)
+  const nearbyAgents = agents.filter(a => {
+    if (!a.currentLocation) return false;
+    const d = distanceKM(
+      a.currentLocation.lat,
+      a.currentLocation.lng,
+      user.location.lat,
+      user.location.lng
+    );
+    return d <= 5; // ✅ 5 KM radius
+  });
 
-    const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
-
-    const order = await Order.create({
-      customerId: user._id,
-      merchantId: restaurant.merchantId._id,
-      items: [{ name: sel.itemName, price: sel.price }],
-      totalAmount: sel.total,
-      deliveryAddress: user.location,
-      paymentMethod: msg.interactive.button_reply.id,
-      agentId: best._id,
-      status: "ASSIGNED",
-    });
-
-    best.isOnline = false;
-    best.currentOrderId = order._id;
-    await best.save();
-
-    user.chatState = null;
-    user.tempOrder = null;
-    await user.save();
-    await updateCache(user);
-
-    return sendText(phone, `🎉 Order confirmed!\n👤 Agent: ${best.name}\n📞 ${best.phone}`);
+  if (!nearbyAgents.length) {
+    return sendText(phone, "⏳ No nearby delivery agents available right now.");
   }
+
+  const restaurant = await Restaurant.findById(sel.restId).populate("merchantId");
+
+  // ✅ Create order WITHOUT agent
+  const order = await Order.create({
+    customerId: user._id,
+    merchantId: restaurant.merchantId._id,
+    items: [{ name: sel.itemName, price: sel.price }],
+    totalAmount: sel.total,
+    deliveryAddress: user.location,
+    paymentMethod: msg.interactive.button_reply.id,
+    status: "SEARCHING_AGENT", // ✅ IMPORTANT
+  });
+
+  // ✅ Mark all nearby agents as notified
+  await Agent.updateMany(
+    { _id: { $in: nearbyAgents.map(a => a._id) } },
+    { $set: { isNotify: true } }
+  );
+
+  // ✅ Push order to all agents via PWA (Socket)
+  global.io.emit("new-order", {
+    orderId: order._id,
+    type: "FOOD"
+  });
+
+  // ✅ Clear user state
+  user.chatState = null;
+  user.tempOrder = null;
+  await user.save();
+  await updateCache(user);
+
+  return sendText(
+    phone,
+    "✅ Order placed successfully!\n🚀 Notifying nearby delivery agents now..."
+  );
+}
+
 
 
 
@@ -974,13 +996,6 @@ if (msg.type === "text" && user.chatState === "MED_WAIT_UPI_PAID" && msg.text.bo
   await assignAgentAndCreateFinalOrder(medOrder, customer);
   return sendText(phone, "✅ Payment noted. We are processing your order.");
 }
-
-
-
-
-
-
-
 };
 
 
@@ -990,11 +1005,12 @@ async function processGroceryOrder(user, phone) {
   const store = await GroceryStore.findById(user.tempGroceryStore).populate("merchantId");
   if (!store) return sendText(phone, "⚠ Store not found.");
 
-  const agents = await Agent.find({ isOnline: true });
+  // ✅ Find all online & free agents
+  const agents = await Agent.find({ isOnline: true, isBusy: false });
 
-  let best = null, bd = Infinity;
-  for (const a of agents) {
-    if (!a.currentLocation) continue;
+  // ✅ Filter only nearby agents (within 5 KM)
+  const nearbyAgents = agents.filter(a => {
+    if (!a.currentLocation) return false;
 
     const d = distanceKM(
       a.currentLocation.lat,
@@ -1003,20 +1019,28 @@ async function processGroceryOrder(user, phone) {
       user.location.lng
     );
 
-    if (d < bd) { bd = d; best = a; }
+    return d <= 5; // ✅ 5 KM radius
+  });
+
+  if (!nearbyAgents.length) {
+    return sendText(phone, "⏳ No nearby delivery agents available right now.");
   }
 
-  if (!best) return sendText(phone, "⏳ No delivery agents available now.");
-
+  // ✅ Calculate total & build items
   let total = 20;
   const orderItems = [];
 
   user.cart.forEach((it) => {
     const amt = it.qty * it.price;
     total += amt;
-    orderItems.push({ name: it.name, price: it.price, qty: it.qty });
+    orderItems.push({
+      name: it.name,
+      price: it.price,
+      qty: it.qty
+    });
   });
 
+  // ✅ Create order WITHOUT agent assignment
   const order = await Order.create({
     customerId: user._id,
     merchantId: store.merchantId._id,
@@ -1024,15 +1048,25 @@ async function processGroceryOrder(user, phone) {
     totalAmount: total,
     deliveryAddress: user.location,
     paymentMethod: user.tempPaymentMethod || "COD",
-    agentId: best._id,
-    status: "ASSIGNED",
+    status: "SEARCHING_AGENT",   // ✅ IMPORTANT
     type: "GROCERY",
   });
 
-  best.isOnline = false;
-  best.currentOrderId = order._id;
-  await best.save();
+  // ✅ Mark all nearby agents as notified
+  await Agent.updateMany(
+    { _id: { $in: nearbyAgents.map(a => a._id) } },
+    { $set: { isNotify: true } }
+  );
 
+  // ✅ Broadcast to ALL agents via PWA (Socket)
+  if (global.io) {
+    global.io.emit("new-order", {
+      orderId: order._id,
+      type: "GROCERY"
+    });
+  }
+
+  // ✅ Clear user state
   user.cart = [];
   user.tempGroceryStore = null;
   user.tempPaymentMethod = null;
@@ -1040,14 +1074,16 @@ async function processGroceryOrder(user, phone) {
   await user.save();
   await updateCache(user);
 
+  // ✅ Send confirmation to user
   return sendText(
     phone,
-    `🛒 *Grocery Order Confirmed!*\n\n` +
+    `🛒 *Grocery Order Placed!*\n\n` +
     `🛍 Store: ${store.merchantId.storeName}\n` +
-    `🚚 Agent: ${best.name}\n📞 ${best.phone}\n\n` +
-    `Your order is on the way!`
+    `🚀 Searching for a nearby delivery agent...\n\n` +
+    `You will be notified once an agent accepts your order.`
   );
 }
+
 
 
 // Clean user typed medicine text
@@ -1164,39 +1200,42 @@ async function processMedicineRequest(user, phone) {
 
 
 async function assignAgentAndCreateFinalOrder(medOrder, customer) {
-  // find online agents and choose nearest
-  const agents = await Agent.find({ isOnline: true });
-  let best = null, bd = Infinity;
-  for (const a of agents) {
-    if (!a.currentLocation) continue;
-    const d = distanceKM(a.currentLocation.lat, a.currentLocation.lng, customer.location.lat, customer.location.lng);
-    if (d < bd) { bd = d; best = a; }
-  }
 
-  if (!best) {
-    // no available agent — inform customer and keep status CONFIRMED
-    await sendText(customer.phone, `✅ Offer confirmed. We are finding a delivery agent and will update you shortly.`);
-    medOrder.status = "CONFIRMED";
-    await medOrder.save();
+  // ✅ Mark order as searching for agent
+  medOrder.status = "SEARCHING_AGENT";
+  await medOrder.save();
+
+  // ✅ Notify ALL free online agents
+  const agents = await Agent.find({ isOnline: true, isBusy: false });
+
+  if (!agents.length) {
+    await sendText(
+      customer.phone,
+      "✅ Medicine order confirmed.\n⏳ Currently no agents available. We will assign one soon."
+    );
     return;
   }
 
-  // assign agent and finalize
-  medOrder.agentId = best._id;
-  medOrder.status = "ASSIGNED";
-  medOrder.finalPrice = medOrder.finalPrice || (medOrder.offers?.[0]?.price || 0);
-  await medOrder.save();
+  await Agent.updateMany(
+    { _id: { $in: agents.map(a => a._id) } },
+    { $set: { isNotify: true } }
+  );
 
-  best.isOnline = false;
-  best.currentOrderId = medOrder._id;
-  await best.save();
+  // ✅ Broadcast to PWA
+  if (global.io) {
+    global.io.emit("new-order", {
+      orderId: medOrder._id,
+      type: "MEDICINE"
+    });
+  }
 
-  // notify customer, pharmacy & agent
-  const pharmacy = await Merchant.findById(medOrder.selectedPharmacyId);
-  await sendText(customer.phone, `🎉 Order confirmed!\nPharmacy: ${pharmacy.storeName}\nAgent: ${best.name}\nPhone: ${best.phone}\nTotal: ₹${medOrder.finalPrice + 20}`);
-  await sendText(pharmacy.phone, `🟢 Customer confirmed order ${medOrder._id}. Agent ${best.name} (${best.phone}) assigned.`);
-  await sendText(best.phone, `📦 New delivery: Order ${medOrder._id}. Pickup from ${pharmacy.storeName}. Customer location sent to you.`);
+  // ✅ Notify customer
+  await sendText(
+    customer.phone,
+    "✅ Medicine order confirmed!\n🚀 Searching for a delivery agent now..."
+  );
 }
+
 
 async function getWhatsAppMediaUrl(mediaId) {
   try {
@@ -1211,3 +1250,18 @@ async function getWhatsAppMediaUrl(mediaId) {
   }
 }
 
+async function notifyAllAgentsPWA(orderId, orderType) {
+  const agents = await Agent.find({ isOnline: true, isBusy: false });
+
+  await Agent.updateMany(
+    { _id: { $in: agents.map(a => a._id) } },
+    { $set: { isNotify: true } }
+  );
+
+  global.io.emit("new-order", {
+    orderId,
+    type: orderType
+  });
+
+  console.log("✅ Order broadcasted to all agents");
+}

@@ -7,7 +7,7 @@ const agentSchema = new mongoose.Schema({
   type: { type: String, enum: ["DELIVERY", "RIDE"], required: true },
   vehicleType: { type: String, enum: ["BIKE", "CAR", "AUTO"], required: true },
   vehicleNumber: { type: String },
-
+  isNotify:{type: Boolean, default:false},
   isVerified: { type: Boolean, default: false },
   isOnline: { type: Boolean, default: false },
   isBusy: { type: Boolean, default: false }, // NEW
