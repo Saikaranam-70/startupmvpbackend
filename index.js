@@ -45,26 +45,42 @@ app.get("/", (req, res) => {
 const server = http.createServer(app);
 
 // ✅ ATTACH SOCKET.IO TO THAT SERVER
-global.io = require("socket.io")(server, {
+const { Server } = require("socket.io");
+global.io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
-// ✅ OPTIONAL: SOCKET CONNECTION LOG
+// ✅ ✅ AGENT SOCKET REGISTRY (VERY IMPORTANT)
+global.agentSockets = {}; // agentId -> socketId
+
+// ✅ SOCKET CONNECTION HANDLER
 global.io.on("connection", (socket) => {
   console.log("✅ Agent connected via Socket:", socket.id);
 
+  // ✅ WHEN AGENT LOGS INTO PWA
+  socket.on("agent-online", ({ agentId }) => {
+    global.agentSockets[agentId] = socket.id;
+    console.log(`✅ Agent Registered: ${agentId} -> ${socket.id}`);
+  });
+
+  // ✅ CLEANUP ON DISCONNECT
   socket.on("disconnect", () => {
-    console.log("❌ Agent disconnected:", socket.id);
+    for (const agentId in global.agentSockets) {
+      if (global.agentSockets[agentId] === socket.id) {
+        delete global.agentSockets[agentId];
+        console.log(`❌ Agent Disconnected: ${agentId}`);
+      }
+    }
   });
 });
 
 // ✅ MONGODB CONNECTION
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected Successfully"))
-  .catch((err) => console.log("MongoDB connection Error:", err));
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.log("❌ MongoDB connection Error:", err));
 
 // ✅ START SERVER
 const PORT = process.env.PORT || 5000;

@@ -471,10 +471,8 @@ if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BU
   );
 
   // ✅ Push order to all agents via PWA (Socket)
-  global.io.emit("new-order", {
-    orderId: order._id,
-    type: "FOOD"
-  });
+await notifyNearbyAgentsPWA(order, nearbyAgents, "FOOD");
+
 
   // ✅ Clear user state
   user.chatState = null;
@@ -1059,12 +1057,8 @@ async function processGroceryOrder(user, phone) {
   );
 
   // ✅ Broadcast to ALL agents via PWA (Socket)
-  if (global.io) {
-    global.io.emit("new-order", {
-      orderId: order._id,
-      type: "GROCERY"
-    });
-  }
+  await notifyNearbyAgentsPWA(order, nearbyAgents, "GROCERY");
+
 
   // ✅ Clear user state
   user.cart = [];
@@ -1222,12 +1216,8 @@ async function assignAgentAndCreateFinalOrder(medOrder, customer) {
   );
 
   // ✅ Broadcast to PWA
-  if (global.io) {
-    global.io.emit("new-order", {
-      orderId: medOrder._id,
-      type: "MEDICINE"
-    });
-  }
+  await notifyNearbyAgentsPWA(medOrder, agents, "MEDICINE");
+
 
   // ✅ Notify customer
   await sendText(
@@ -1250,18 +1240,32 @@ async function getWhatsAppMediaUrl(mediaId) {
   }
 }
 
-async function notifyAllAgentsPWA(orderId, orderType) {
-  const agents = await Agent.find({ isOnline: true, isBusy: false });
+// async function notifyAllAgentsPWA(orderId, orderType) {
+//   const agents = await Agent.find({ isOnline: true, isBusy: false });
 
-  await Agent.updateMany(
-    { _id: { $in: agents.map(a => a._id) } },
-    { $set: { isNotify: true } }
-  );
+//   await Agent.updateMany(
+//     { _id: { $in: agents.map(a => a._id) } },
+//     { $set: { isNotify: true } }
+//   );
 
-  global.io.emit("new-order", {
-    orderId,
-    type: orderType
-  });
+//   global.io.emit("new-order", {
+//     orderId,
+//     type: orderType
+//   });
 
-  console.log("✅ Order broadcasted to all agents");
+//   console.log("✅ Order broadcasted to all agents");
+// }
+
+async function notifyNearbyAgentsPWA(order, nearbyAgents, type) {
+  for (const agent of nearbyAgents) {
+    const socketId = global.agentSockets?.[agent._id.toString()];
+    if (socketId) {
+      global.io.to(socketId).emit("new-order", {
+        orderId: order._id,
+        type,
+      });
+    }
+  }
+
+  console.log("✅ Notified nearby logged-in agents via PWA");
 }
