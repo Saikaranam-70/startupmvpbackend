@@ -16,7 +16,7 @@ const VERIFY_TOKEN = process.env.secret_key;
 
 const WABA_URL = `https://graph.facebook.com/v22.0/905586875961713/messages`;
 const AUTH = {
-  Authorization: `Bearer EAATRMkskE2oBQIALFXb47e6hfBSvqoBISQJZByUPC9SZAaJvyZBOBwNB3wOTC7FAL3bHmzW31V6DzFhxGjGMlH8tNZBrA5ZAliXMZAuH59K00OSCtvONaSgfwkrlzQkGCxzz4m999nqc2v7iZA9ZAFw6DZBIJgng3WvdkLdRpIZChuXZAE2AvRawQPK4UW54tFAKkOInyDwXVjZA2fyXOHGZAmQubHrRlgV0fclCCz7ZBWeZBFKpTNJfeZApeWZAw3wRpZAAC1kLwOeLCvxQZAjDAOL1WYegH0WZBmZAU`,
+  Authorization: `Bearer EAATRMkskE2oBQHWlrAZA4tf02B3HgwdD9edPedHgF3i0I7WEIhdGC1zaC7WUCmUxNk5lfuYKmalQAn591iSNwB0I0lAJ1SOVZBKoft0fESVxMHDJYWz3u8AQWfWq7YuDliu0HpjZA2jcIoHewwijT1CpoOA7PEmOveuGjdkpOChve8rZAJng7LQN2cvzHIzBiqoYZBfNFkKS6slrxdMozxA0zjXVYxaIvngDc7B1JVz0ycGWVmacmZAJ6l5HFsE7cPoilXgpcPm10hrfvYvYPRLk36`,
   "Content-Type": "application/json",
 };
 
