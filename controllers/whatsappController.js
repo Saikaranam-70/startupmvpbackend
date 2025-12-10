@@ -300,8 +300,28 @@ exports.receiveMessage = async (req, res) => {
       let title = c._id;
 
       // ⭐ Add brackets ONLY for Main Course
-      if (c._id === "Main Course") {
-        title = "Main Course(Biryanies)";
+      // if (c._id === "Main Course") {
+      //   title = "Main Course(Biryanies)";
+      // }
+      switch(c._id){
+        case "Chinese":
+          title = "Chinese (Soups)"
+          break
+        case "Fast Food":
+          title = "Fast Food (Noodles)"
+          break
+        case "Snacks":
+          title = "Snacks (Samosa)"
+          break
+        case "Starters":
+          title = "Starters (Chicken Fry)"
+          break
+        case "Curry":
+          title = "Curry (Chicken)"
+          break
+        case "Main Course":
+          title = "Main Course(Biryanies)"
+          break
       }
 
       return {
