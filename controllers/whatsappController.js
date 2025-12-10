@@ -301,7 +301,7 @@ exports.receiveMessage = async (req, res) => {
 
       // ⭐ Add brackets ONLY for Main Course
       if (c._id === "Main Course") {
-        title = "Main Course (Biryanies, Meals etc.)";
+        title = "Main Course(Biryanies)";
       }
 
       return {
