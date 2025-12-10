@@ -2,12 +2,11 @@ const mongoose = require("mongoose")
 
 const merchentSchema = new mongoose.Schema({
   ownerName: { type: String, required: true },
-  businessType: { type: String, enum: ["RESTAURANT", "GROCERY", "PHARMACY"], required: true },
+  businessType: { type: String, enum: ["RESTAURANT", "GROCERY", "PHARMACY", "CLOTHING"], required: true },
   storeName: { type: String, required: true },
   phone: { type: String, required: true, unique: true },
   email: { type: String },
   password: { type: String }, 
-
   address: {
     line1: String,
     city: String,

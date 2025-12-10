@@ -2,7 +2,7 @@ const express = require("express");
 const dotEnv = require("dotenv");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const fileUpload = require("express-fileupload");
+// const fileUpload = require("express-fileupload");
 const http = require("http");
 const { Server } = require("socket.io");
 
@@ -15,6 +15,9 @@ const userRoutes = require("./routes/userRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const rideRoutes = require("./routes/rideRoutes");
 const whatsappRoutes = require("./routes/whatsappRoutes");
+const productRoutes = require("./routes/productRoutes");
+const clothUserRoutes = require("./routes/clothUserRoutes")
+// const multer = require("multer");
 
 dotEnv.config();
 const app = express();
@@ -23,12 +26,20 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.use(
-  fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/",
-  })
-);
+// app.use(
+//   fileUpload({
+//     useTempFiles: true,
+//     tempFileDir: "/tmp/",
+//   })
+// );
+
+// const upload = multer({
+//   storage,
+//   limits: {
+//     fileSize: 5 * 1024 * 1024,
+//   },
+// });
+
 
 // ✅ ROUTES
 app.use("/merchant", merchantRoutes);
@@ -39,6 +50,8 @@ app.use("/user", userRoutes);
 app.use("/order", orderRoutes);
 app.use("/ride", rideRoutes);
 app.use("/webhook", whatsappRoutes);
+app.use("/clothing", productRoutes)
+app.use("/clothuser", clothUserRoutes)
 
 // ✅ ROOT TEST
 app.get("/", (req, res) => {

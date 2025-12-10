@@ -25,6 +25,8 @@
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.2",
+    "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
     "node-cache": "^5.1.2",
     "openai": "^6.8.1",
     "pdfkit": "^0.17.2",
