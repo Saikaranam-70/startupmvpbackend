@@ -295,13 +295,24 @@ exports.receiveMessage = async (req, res) => {
       { $group: { _id: "$menuItems.category" } }
     ]);
 
-    const rows = categories.map(c => ({
-      id: `CAT_${c._id}`,
-      title: c._id
-    }));
+    const rows = categories.map(c => {
+
+      let title = c._id;
+
+      // ⭐ Add brackets ONLY for Main Course
+      if (c._id === "Main Course") {
+        title = "Main Course (Biryanies, Meals etc.)";
+      }
+
+      return {
+        id: `CAT_${c._id}`,
+        title
+      };
+    });
 
     return sendList(phone, `Choose a category (${foodType})`, rows);
 }
+
 
 if(msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("CAT_")){
   const category = msg.interactive.list_reply.id.replace("CAT_", "");
