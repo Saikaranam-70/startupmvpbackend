@@ -214,17 +214,47 @@ exports.receiveMessage = async (req, res) => {
   //   await sendText(phone, "👋 Hello! Please share your location to continue.");
   //   return requestLocation(phone);
   // }
-  if (msg.type === "text" && !user.chatState) {
+
+  if (msg.type === "text") {
+  const text = msg.text.body.trim().toLowerCase();
+
+  const greetings = [
+    "hi",
+    "hello",
+    "hey",
+    "hii",
+    "hiii",
+    "hai",
+    "start",
+    "menu",
+    "help",
+    "order",
+    "food",
+    "hola",
+    "yo",
+    "sup",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "good night"
+  ];
+
+  const isGreeting =
+    greetings.includes(text) ||
+    /^hi+$/i.test(text) ||
+    /^hello+$/i.test(text) ||
+    /^hey+$/i.test(text);
+
+  if (isGreeting) {
     user.chatState = "WAITING_LOCATION";
     await user.save();
     await updateCache(user);
 
-    await sendText(
-      phone,
-      "👋 Welcome! Please share your location to continue."
-    );
+    await sendText(phone, "👋 Hello! Please share your location to continue.");
     return requestLocation(phone);
   }
+}
+
 
   if (msg.type === "location") {
     user.location = {
@@ -526,74 +556,74 @@ exports.receiveMessage = async (req, res) => {
 
   //   return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
   // }
-  if (
-    msg.type === "interactive" &&
-    msg.interactive.list_reply?.id?.startsWith("BUDGET_")
-  ) {
-    const [_, min, max] = msg.interactive.list_reply.id.split("_");
-    const minPrice = Number(min);
-    const maxPrice = Number(max);
+  if (msg.type === "interactive" && msg.interactive.list_reply?.id?.startsWith("BUDGET_")) {
+  const [_, min, max] = msg.interactive.list_reply.id.split("_");
+  const minPrice = Number(min);
+  const maxPrice = Number(max);
 
-    // ✅ Restaurant filter (ALL or selected)
-    const restaurantMatch =
-      user.selectedRestaurant && user.selectedRestaurant !== "ALL"
-        ? { _id: new mongoose.Types.ObjectId(user.selectedRestaurant) }
-        : {};
+  // ✅ Restaurant filter (ALL or selected)
+  const restaurantMatch =
+    user.selectedRestaurant && user.selectedRestaurant !== "ALL"
+      ? { _id: new mongoose.Types.ObjectId(user.selectedRestaurant) }
+      : {};
 
-    const items = await Restaurant.aggregate([
-      // ✅ Apply restaurant filter FIRST
-      { $match: restaurantMatch },
+  const items = await Restaurant.aggregate([
+    // ✅ Apply restaurant filter FIRST
+    { $match: restaurantMatch },
 
-      { $unwind: "$menuItems" },
+    { $unwind: "$menuItems" },
 
-      {
-        $match: {
-          "menuItems.type": user.tempType,
-          "menuItems.category": user.tempCategory,
-          "menuItems.isAvailable": true,
-          "menuItems.price": { $gte: minPrice, $lte: maxPrice },
-        },
-      },
+    {
+      $match: {
+        "menuItems.type": user.tempType,
+        "menuItems.category": user.tempCategory,
+        "menuItems.isAvailable": true,
+        "menuItems.price": { $gte: minPrice, $lte: maxPrice }
+      }
+    },
 
-      // ✅ Calculate rating safely
-      {
-        $addFields: {
-          "menuItems.rating": {
-            $cond: [
-              { $eq: ["$ratingCount", 0] },
-              0,
-              { $divide: ["$ratingSum", "$ratingCount"] },
-            ],
-          },
-        },
-      },
+    // ✅ Calculate rating safely
+    {
+      $addFields: {
+        "menuItems.rating": {
+          $cond: [
+            { $eq: ["$ratingCount", 0] },
+            0,
+            { $divide: ["$ratingSum", "$ratingCount"] }
+          ]
+        }
+      }
+    },
 
-      // ✅ Cheapest first
-      { $sort: { "menuItems.price": 1 } },
+    // ✅ Cheapest first
+    { $sort: { "menuItems.price": 1 } },
 
-      // ✅ Optional performance limit (DB level)
-      { $limit: 20 },
-    ]);
+    // ✅ Optional performance limit (DB level)
+    { $limit: 20 }
+  ]);
 
-    if (!items.length) {
-      return sendText(phone, "❌ No items found in this budget.");
-    }
-
-    // ✅ WhatsApp-safe rows
-    const rows = items.slice(0, 10).map((r) => ({
-      id: `ITEM_${r._id}_${r.menuItems._id}`,
-      title: r.menuItems.name.substring(0, 24),
-      description: `₹${r.menuItems.price} · ⭐${
-        r.menuItems.rating?.toFixed(1) || "0.0"
-      }`,
-    }));
-
-    user.chatState = "SELECT_ITEM";
-    await user.save();
-    await updateCache(user);
-
-    return sendList(phone, `Best items in ₹${minPrice} - ₹${maxPrice}`, rows);
+  if (!items.length) {
+    return sendText(phone, "❌ No items found in this budget.");
   }
+
+  // ✅ WhatsApp-safe rows
+  const rows = items.slice(0, 10).map(r => ({
+    id: `ITEM_${r._id}_${r.menuItems._id}`,
+    title: r.menuItems.name.substring(0, 24),
+    description: `₹${r.menuItems.price} · ⭐${r.menuItems.rating?.toFixed(1) || "0.0"}`
+  }));
+
+  user.chatState = "SELECT_ITEM";
+  await user.save();
+  await updateCache(user);
+
+  return sendList(
+    phone,
+    `Best items in ₹${minPrice} - ₹${maxPrice}`,
+    rows
+  );
+}
+
 
   if (user.chatState === "ASK_ITEM" && msg.type === "text") {
     const parsed = parseFood(msg.text.body);
