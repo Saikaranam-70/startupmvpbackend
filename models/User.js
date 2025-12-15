@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema(
     /**
      * ------------------ FOOD ORDER TEMP DATA ------------------
      */
+    selectedRestaurant: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      default: null,
+    },
     tempType: {
       type: String,
       enum: ["VEG", "NON-VEG", null],
