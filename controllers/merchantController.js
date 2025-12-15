@@ -33,6 +33,9 @@ exports.loginMerchant = async(req, res)=>{
     try {
         const {phone, password} = req.body;
         const merchant = await Merchant.findOne({phone});
+        console.log("Called")
+        console.log(phone)
+        console.log(merchant)
         if(!merchant) return res.status(404).json({message:"Merchant Not Found"});
         const isMatch = await bcrypt.compare(password, merchant.password || "");
         if(!isMatch) return res.status(400).json({message: "Invalid credentials" });
