@@ -365,10 +365,10 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 📧 Support & Contact
 
-- 📧 **Email**: support@oneserve.io
+- 📧 **Email**: saikaranam995@gmail.com
 - 🐛 **Issues**: [GitHub Issues](https://github.com/Saikaranam-70/startupmvpbackend/issues)
 - 💬 **Discussions**: [GitHub Discussions](https://github.com/Saikaranam-70/startupmvpbackend/discussions)
-- 📱 **WhatsApp**: Contact us via OneServe
+- 📱 **WhatsApp**: 7095835048
 
 ---
 
